@@ -1,0 +1,35 @@
+name = "arc-creator-agents"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Durable Objects for Agents
+[[durable_objects.bindings]]
+name = "CREATOR_AGENT"
+class_name = "CreatorAgent"
+script_name = "arc-creator-agents"
+
+# Migrations for Durable Objects (required)
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["CreatorAgent"]
+
+# AI Model bindings (OpenAI)
+# Configure this through Cloudflare Dashboard after first deployment:
+# 1. Go to Workers & Pages → arc-creator-agents → Settings → Bindings
+# 2. Add AI binding with name "AI"
+# 3. Select OpenAI model
+# 4. Add OPENAI_API_KEY secret (see Step 4 in SETUP_CLOUDFLARE_AGENTS.md)
+#
+# For now, we'll configure it via Dashboard after deployment
+
+# Environment variables
+[vars]
+ARC_RPC_URL = "https://rpc.testnet.arc.network"
+# Add your contract addresses here
+
+# Route for production
+# routes = [
+#   { pattern = "agents.yourdomain.com/*", zone_name = "yourdomain.com" }
+# ]
+

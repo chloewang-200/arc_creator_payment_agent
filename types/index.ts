@@ -1,0 +1,59 @@
+export type Post = {
+  id: string;
+  title: string;
+  intro: string;   // free portion
+  body: string;    // locked content
+  priceUSD: number; // per-post unlock
+  includedInSubscription: true; // always true for MVP
+  creatorId: string;
+  createdAt: string;
+  contentType: 'post' | 'podcast' | 'video' | 'article';
+};
+
+export type SitePricing = {
+  monthlyUSD: number; // e.g., 5
+  tipPresetsUSD: number[]; // [1, 2, 5]
+  recurringTipUSD?: number; // Optional recurring tip amount
+};
+
+export type Entitlements = {
+  postsUnlocked: Record<string, boolean>;
+  subscriptionActiveUntil?: string; // ISO date
+  recurringTips?: Record<string, { amount: number; activeUntil: string }>; // creatorId -> recurring tip info
+};
+
+export type Creator = {
+  id: string;
+  name: string;
+  username: string; // URL-friendly
+  avatar?: string;
+  bio?: string;
+  coverImage?: string;
+  pricing: SitePricing;
+  hasContent: boolean; // false for tip-only creators
+  walletAddress?: `0x${string}`; // Creator's wallet address for receiving payments
+  stats?: {
+    followers?: number;
+    totalEarnings?: number;
+  };
+  // AI customization fields
+  aiTone?: string; // e.g., "friendly", "professional", "casual", "enthusiastic"
+  aiBackground?: string; // Additional context for the AI
+  aiPersonality?: string; // Custom personality traits
+};
+
+export type PaymentIntent = {
+  kind: 'unlock' | 'subscription' | 'tip' | 'recurringTip';
+  postId?: string;
+  creatorId?: string;
+  creatorAddress?: `0x${string}`; // Creator's wallet address for receiving payments
+  amountUSD: number;
+  title?: string;
+};
+
+export type AvatarMessage = {
+  id: string;
+  text: string;
+  timestamp: Date;
+  sender: 'avatar' | 'user';
+};

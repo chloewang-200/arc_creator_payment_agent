@@ -1,0 +1,68 @@
+'use client';
+
+import { useChainId, useSwitchChain } from 'wagmi';
+import { supportedChains } from '@/lib/wagmi-config';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Check, ChevronDown, Network } from 'lucide-react';
+import { supportsCCTP } from '@/lib/cctp';
+import { Badge } from '@/components/ui/badge';
+
+export function ChainSelector() {
+  const chainId = useChainId();
+  const { switchChain } = useSwitchChain();
+
+  const currentChain = supportedChains.find((c) => c.id === chainId);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" className="gap-2">
+          <Network className="w-4 h-4" />
+          <span className="hidden sm:inline">
+            {currentChain?.name || 'Select Chain'}
+          </span>
+          <ChevronDown className="w-4 h-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>Select Network</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {supportedChains.map((chain) => {
+          const isSelected = chain.id === chainId;
+          const hasCCTP = supportsCCTP(chain.id);
+
+          return (
+            <DropdownMenuItem
+              key={chain.id}
+              onClick={() => {
+                if (!isSelected && switchChain) {
+                  switchChain({ chainId: chain.id });
+                }
+              }}
+              className="flex items-center justify-between cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                {isSelected && <Check className="w-4 h-4" />}
+                <span>{chain.name}</span>
+              </div>
+              {hasCCTP && (
+                <Badge variant="secondary" className="text-xs ml-2">
+                  CCTP
+                </Badge>
+              )}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+

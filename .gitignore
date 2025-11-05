@@ -39,3 +39,34 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Foundry build artifacts
+/cache/
+/broadcast/
+
+# Cloudflare Workers
+workers/.wrangler/
+workers/node_modules/
+
+# SQL migration files (often contain sensitive data or are operational)
+*.sql
+
+# Backup/old files
+*.old
+*.bak
+*.swp
+*.swo
+*~
+
+# Shell scripts (may contain sensitive info)
+*.sh
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Documentation (keep only README.md)
+*.md
+!README.md
+.cursorignore
