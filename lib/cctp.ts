@@ -26,6 +26,7 @@ export const USDC_ADDRESSES: Record<number, `0x${string}`> = {
   [optimism.id]: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85' as `0x${string}`,
   [sepolia.id]: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238' as `0x${string}`,
   [ARC_CHAIN_ID]: '0x3600000000000000000000000000000000000000' as `0x${string}`, // Arc Testnet USDC
+  1328: '0x4fCF1784B31630811181f670Aea7A7bEF803eaED' as `0x${string}`, // Sei Atlantic/Testnet USDC
 };
 
 // CCTP Message Transmitter addresses (for relaying messages)

@@ -4,14 +4,14 @@ import { useChainId } from 'wagmi';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Info, ArrowRight, Wallet } from 'lucide-react';
+import { Info, Wallet } from 'lucide-react';
 import { ARC_CHAIN_ID } from '@/lib/config';
-import { supportsCCTP } from '@/lib/cctp';
+import { getGatewayUSDCAddress } from '@/lib/gateway';
 
 export function PaymentFlowInfo({ className }: { className?: string }) {
   const chainId = useChainId();
   const isOnArc = chainId === ARC_CHAIN_ID;
-  const hasCCTP = supportsCCTP(chainId);
+  const hasUSDC = !!getGatewayUSDCAddress(chainId);
 
   return (
     <Card className={`border-primary/20 ${className || ''}`}>
@@ -34,20 +34,20 @@ export function PaymentFlowInfo({ className }: { className?: string }) {
             </Badge>
           </div>
           
-          {!isOnArc && hasCCTP && (
+          {!isOnArc && hasUSDC && (
             <Alert>
               <Info className="w-4 h-4" />
               <AlertDescription className="text-xs">
-                You're on chain {chainId}. When you pay, USDC will be bridged to Arc Network using CCTP so creators receive it in their unified balance.
+                You're on chain {chainId}. USDC will be sent directly to the creator's wallet on this chain. Creators can consolidate earnings from all chains later.
               </AlertDescription>
             </Alert>
           )}
 
-          {!isOnArc && !hasCCTP && (
+          {!isOnArc && !hasUSDC && (
             <Alert variant="destructive">
               <Info className="w-4 h-4" />
               <AlertDescription className="text-xs">
-                Chain {chainId} doesn't support CCTP. Please switch to Arc Network or a supported chain to make payments.
+                Chain {chainId} doesn't have USDC. Please switch to a chain with USDC (Arc, Base, Arbitrum, Sepolia, etc.) to make payments.
               </AlertDescription>
             </Alert>
           )}
@@ -56,7 +56,7 @@ export function PaymentFlowInfo({ className }: { className?: string }) {
             <Alert>
               <Info className="w-4 h-4" />
               <AlertDescription className="text-xs">
-                You're on Arc Network. Payments go directly to creators.
+                You're on Arc Network. Payments go directly to creators through the PayRouter contract.
               </AlertDescription>
             </Alert>
           )}
@@ -65,15 +65,15 @@ export function PaymentFlowInfo({ className }: { className?: string }) {
         <div className="text-xs text-muted-foreground space-y-1">
           <div className="flex items-center gap-2">
             <span>💡</span>
-            <span>Payments are in USDC (CCTP supports USDC only)</span>
+            <span>Payments are in USDC</span>
           </div>
           <div className="flex items-center gap-2">
             <span>🌉</span>
-            <span>CCTP automatically bridges USDC to Arc for creators</span>
+            <span>Users can pay on any chain with USDC</span>
           </div>
           <div className="flex items-center gap-2">
             <span>💰</span>
-            <span>Creators receive unified USDC balance on Arc</span>
+            <span>Creators receive payments on the chain you pay on, and can consolidate to Arc later</span>
           </div>
         </div>
       </CardContent>

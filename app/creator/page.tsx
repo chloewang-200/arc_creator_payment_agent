@@ -6,9 +6,14 @@ import { useRouter } from 'next/navigation';
 import { posts } from '@/data/posts';
 import { defaultPricing } from '@/data/pricing';
 import { UniversalBalance } from '@/components/UniversalBalance';
+import { PlatformEarnings } from '@/components/PlatformEarnings';
+import { ConsolidateBalance } from '@/components/ConsolidateBalance';
 import { CreatorAuthGuard } from '@/components/CreatorAuthGuard';
 import { TransactionLog } from '@/components/TransactionLog';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuth } from '@/lib/auth-context';
+import { WalletConnectButton } from '@/components/WalletConnectButton';
+import { useAccount } from 'wagmi';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +31,7 @@ import type { Post, SitePricing, Creator } from '@/types';
 function CreatorDashboardContent() {
   const router = useRouter();
   const { user, loading: authLoading, signOut } = useAuth();
+  const { address: connectedAddress, isConnected } = useAccount();
   const [postsList, setPostsList] = useState<Post[]>(posts);
   const [pricing, setPricing] = useState<SitePricing>(defaultPricing);
   const [profile, setProfile] = useState<Partial<Creator>>({
@@ -338,9 +344,66 @@ function CreatorDashboardContent() {
           </Card>
         </div>
 
-        {/* Universal Balance */}
-        <div className="mb-8">
-          <UniversalBalance creatorAddress={profile.walletAddress} />
+        {/* Wallet Connection for Consolidation */}
+        {profile.walletAddress && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wallet className="w-5 h-5" />
+                Connect Wallet for Consolidation
+              </CardTitle>
+              <CardDescription>
+                Connect your creator wallet ({profile.walletAddress.slice(0, 6)}...{profile.walletAddress.slice(-4)}) to consolidate balances from all chains to Arc Network.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div>
+                  {isConnected ? (
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium">Wallet Connected</div>
+                      <div className="text-xs text-muted-foreground font-mono">
+                        {connectedAddress?.slice(0, 6)}...{connectedAddress?.slice(-4)}
+                      </div>
+                      {connectedAddress?.toLowerCase() !== profile.walletAddress.toLowerCase() && (
+                        <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                          ⚠️ Connected wallet doesn't match creator address. Please connect the correct wallet.
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">
+                      Connect your wallet to consolidate balances
+                    </div>
+                  )}
+                </div>
+                <WalletConnectButton />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Balance Cards */}
+        <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <ErrorBoundary>
+            {profile.id ? (
+              <PlatformEarnings creatorId={profile.id} />
+            ) : (
+              <UniversalBalance creatorAddress={profile.walletAddress} />
+            )}
+          </ErrorBoundary>
+          {profile.walletAddress && (
+            <ErrorBoundary>
+              <ConsolidateBalance
+                creatorAddress={profile.walletAddress}
+                creatorId={profile.id}
+                onConsolidationComplete={() => {
+                  // Refresh the page or trigger a balance refresh
+                  window.location.reload();
+                }}
+              />
+            </ErrorBoundary>
+          )}
         </div>
 
         {/* Tabs */}
@@ -804,8 +867,10 @@ function CreatorDashboardContent() {
 
 export default function CreatorDashboard() {
   return (
-    <CreatorAuthGuard>
-      <CreatorDashboardContent />
-    </CreatorAuthGuard>
+    <ErrorBoundary>
+      <CreatorAuthGuard>
+        <CreatorDashboardContent />
+      </CreatorAuthGuard>
+    </ErrorBoundary>
   );
 }

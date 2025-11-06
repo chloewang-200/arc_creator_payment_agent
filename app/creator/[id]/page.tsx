@@ -15,8 +15,9 @@ import { PaywallBlock } from '@/components/PaywallBlock';
 import { SubscriptionBadge } from '@/components/SubscriptionBadge';
 import { UnlockAnimation } from '@/components/UnlockAnimation';
 import { PaymentFlowInfo } from '@/components/PaymentFlowInfo';
+import { CheckoutModal } from '@/components/CheckoutModal';
 import { ArrowLeft, Users, Wallet, FileText, Headphones, Video, Heart, Crown, Sparkles, Loader2 } from 'lucide-react';
-import type { Creator, Post, SitePricing } from '@/types';
+import type { Creator, Post, SitePricing, PaymentIntent } from '@/types';
 
 export default function CreatorPage() {
   const params = useParams();
@@ -29,6 +30,7 @@ export default function CreatorPage() {
   const [pricing, setPricing] = useState<SitePricing>(defaultPricing);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedIntent, setSelectedIntent] = useState<PaymentIntent | null>(null);
 
   useEffect(() => {
     const loadCreatorAndPosts = async () => {
@@ -282,15 +284,12 @@ export default function CreatorPage() {
                       size="lg"
                       className="gap-2"
                       onClick={() => {
-                        // Trigger AI agent or checkout for tip
-                        const event = new CustomEvent('creatorTip', { 
-                          detail: { 
-                            amount: tip, 
-                            creatorId: creator.id,
-                            creatorAddress: creator.walletAddress,
-                          } 
+                        setSelectedIntent({
+                          kind: 'tip',
+                          amountUSD: tip,
+                          creatorId: creator.id,
+                          creatorAddress: creator.walletAddress as `0x${string}`,
                         });
-                        window.dispatchEvent(event);
                       }}
                     >
                       <Heart className="w-4 h-4" />
@@ -312,15 +311,13 @@ export default function CreatorPage() {
                     size="lg"
                     className="gap-2"
                     onClick={() => {
-                      const recurringAmount = creator.pricing?.recurringTipUSD || 10; // Default to $10 if not set
-                      const event = new CustomEvent('creatorRecurringTip', { 
-                        detail: { 
-                          amount: recurringAmount, 
-                          creatorId: creator.id,
-                          creatorAddress: creator.walletAddress,
-                        } 
+                      const recurringAmount = creator.pricing?.recurringTipUSD || 10;
+                      setSelectedIntent({
+                        kind: 'recurringTip',
+                        amountUSD: recurringAmount,
+                        creatorId: creator.id,
+                        creatorAddress: creator.walletAddress as `0x${string}`,
                       });
-                      window.dispatchEvent(event);
                     }}
                   >
                     <Crown className="w-4 h-4" />
@@ -412,6 +409,18 @@ export default function CreatorPage() {
       </div>
 
       <CreatorAgent creatorName={creator.name} creatorId={creator.id} />
+
+      {selectedIntent && (
+        <CheckoutModal
+          intent={selectedIntent}
+          onClose={() => setSelectedIntent(null)}
+          onSuccess={() => {
+            setSelectedIntent(null);
+            // Reload access state
+            window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
 }

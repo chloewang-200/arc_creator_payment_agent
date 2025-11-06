@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw signUpError;
       }
 
-      data = signUpData;
+      data = signUpData as any;
       error = null;
     }
 

@@ -13,7 +13,7 @@ interface AvatarOverlayProps {
   postId: string;
   postTitle: string;
   postPriceUSD: number;
-  monthlyUSD: number;
+  monthlyUSD: number | null;
   creatorId?: string;
   creatorAddress?: `0x${string}`;
   onUnlock: () => void;
@@ -56,7 +56,7 @@ export function AvatarOverlay({
       kind: 'subscription',
       creatorId,
       creatorAddress,
-      amountUSD: monthlyUSD,
+      amountUSD: monthlyUSD!,
     });
   };
 

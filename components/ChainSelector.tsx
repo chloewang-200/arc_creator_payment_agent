@@ -12,8 +12,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Check, ChevronDown, Network } from 'lucide-react';
-import { supportsCCTP } from '@/lib/cctp';
-import { Badge } from '@/components/ui/badge';
 
 export function ChainSelector() {
   const chainId = useChainId();
@@ -37,7 +35,6 @@ export function ChainSelector() {
         <DropdownMenuSeparator />
         {supportedChains.map((chain) => {
           const isSelected = chain.id === chainId;
-          const hasCCTP = supportsCCTP(chain.id);
 
           return (
             <DropdownMenuItem
@@ -53,11 +50,6 @@ export function ChainSelector() {
                 {isSelected && <Check className="w-4 h-4" />}
                 <span>{chain.name}</span>
               </div>
-              {hasCCTP && (
-                <Badge variant="secondary" className="text-xs ml-2">
-                  CCTP
-                </Badge>
-              )}
             </DropdownMenuItem>
           );
         })}

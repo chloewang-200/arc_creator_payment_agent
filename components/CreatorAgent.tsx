@@ -345,7 +345,7 @@ export function CreatorAgent({ creatorName, creatorId }: CreatorAgentProps) {
               >
                 Unlock Latest Post
               </Button>
-              {creator.pricing.monthlyUSD > 0 && (
+              {creator.pricing.monthlyUSD && creator.pricing.monthlyUSD > 0 && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -363,7 +363,7 @@ export function CreatorAgent({ creatorName, creatorId }: CreatorAgentProps) {
                       kind: 'subscription',
                       creatorId,
                       creatorAddress: creator.walletAddress,
-                      amountUSD: creator.pricing.monthlyUSD,
+                      amountUSD: creator.pricing.monthlyUSD!,
                     });
                   }}
                   className="text-xs"

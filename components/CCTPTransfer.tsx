@@ -100,7 +100,7 @@ export function CCTPTransfer({ onSuccess }: CCTPTransferProps) {
       address: tokenMessenger,
       abi: CCTP_TOKEN_MESSENGER_ABI,
       functionName: 'depositForBurn',
-      args: [amountWei, destinationDomain, mintRecipient],
+      args: [amountWei, destinationDomain, mintRecipient, usdcAddress!],
     });
   };
 

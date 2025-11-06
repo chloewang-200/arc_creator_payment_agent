@@ -119,7 +119,7 @@ export default function Home() {
                       <Sparkles className="w-4 h-4" />
                       <span>Premium Content</span>
                     </div>
-                    {creator.pricing.monthlyUSD > 0 && (
+                    {creator.pricing.monthlyUSD && creator.pricing.monthlyUSD > 0 && (
                       <div className="flex items-center gap-1">
                         <Crown className="w-4 h-4" />
                         <span>${creator.pricing.monthlyUSD}/mo</span>

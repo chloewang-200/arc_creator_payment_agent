@@ -38,6 +38,29 @@ const arcChain = {
   testnet: true, // Mark as testnet
 } as const;
 
+// Sei Testnet chain definition
+const seiTestnet = {
+  id: 1328,
+  name: 'Sei Testnet',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'SEI',
+    symbol: 'SEI',
+  },
+  rpcUrls: {
+    default: {
+      http: ['https://evm-rpc-testnet.sei-apis.com'],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'SeiTrace',
+      url: 'https://seitrace.com',
+    },
+  },
+  testnet: true,
+} as const;
+
 // Supported chains for multi-chain payments
 export const supportedChains = [
   arcChain,      // Arc (destination)
@@ -54,6 +77,7 @@ export const supportedChains = [
   optimismSepolia, // Optimism Sepolia (testnet)
   polygonAmoy,   // Polygon Amoy (testnet)
   avalancheFuji, // Avalanche Fuji (testnet)
+  seiTestnet,    // Sei Testnet
 ] as const;
 
 export const wagmiConfig = createConfig({
@@ -83,6 +107,7 @@ export const wagmiConfig = createConfig({
     [optimismSepolia.id]: http(),
     [polygonAmoy.id]: http(),
     [avalancheFuji.id]: http(),
+    [seiTestnet.id]: http('https://evm-rpc-testnet.sei-apis.com'),
   },
   pollingInterval: 8000, // Poll every 8 seconds instead of default 4 seconds
 });
