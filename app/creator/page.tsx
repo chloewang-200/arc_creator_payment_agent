@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import { posts } from '@/data/posts';
 import { defaultPricing } from '@/data/pricing';
 import { UniversalBalance } from '@/components/UniversalBalance';
-import { CCTPTransfer } from '@/components/CCTPTransfer';
 import { CreatorAuthGuard } from '@/components/CreatorAuthGuard';
+import { TransactionLog } from '@/components/TransactionLog';
 import { useAuth } from '@/lib/auth-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,7 +44,7 @@ function CreatorDashboardContent() {
     priceUSD: 0.69,
     contentType: 'post',
   });
-  const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'settings' | 'transactions'>('overview');
   const [showSavedMessage, setShowSavedMessage] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -338,10 +338,9 @@ function CreatorDashboardContent() {
           </Card>
         </div>
 
-        {/* Universal Balance & CCTP */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Universal Balance */}
+        <div className="mb-8">
           <UniversalBalance creatorAddress={profile.walletAddress} />
-          <CCTPTransfer />
         </div>
 
         {/* Tabs */}
@@ -367,6 +366,13 @@ function CreatorDashboardContent() {
               className="rounded-b-none"
             >
               Settings
+            </Button>
+            <Button
+              variant={activeTab === 'transactions' ? 'default' : 'ghost'}
+              onClick={() => setActiveTab('transactions')}
+              className="rounded-b-none"
+            >
+              Transactions
             </Button>
           </div>
         </div>
@@ -460,7 +466,7 @@ function CreatorDashboardContent() {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="space-y-2 flex-1">
-                    <Label htmlFor="price">Price (USD)</Label>
+                    <Label htmlFor="price">Price (USDC)</Label>
                     <div className="relative">
                       <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                       <Input
@@ -720,23 +726,28 @@ function CreatorDashboardContent() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="monthly">Monthly Subscription (USD)</Label>
+                    <Label htmlFor="monthly">Monthly Subscription (USDC)</Label>
                     <div className="relative">
                       <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                       <Input
                         id="monthly"
                         type="number"
                         step="0.01"
-                        value={pricing.monthlyUSD}
-                        onChange={(e) =>
-                          savePricing({ ...pricing, monthlyUSD: parseFloat(e.target.value) || 0 })
-                        }
+                        min="0"
+                        value={pricing.monthlyUSD === null || pricing.monthlyUSD === undefined ? '' : pricing.monthlyUSD}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Allow empty string while typing, save as null if empty (better than 0)
+                          const numValue = value === '' ? null : (parseFloat(value) || null);
+                          savePricing({ ...pricing, monthlyUSD: numValue });
+                        }}
                         className="pl-9"
+                        placeholder="0.00"
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="tips">Tip Presets (USD, comma-separated)</Label>
+                    <Label htmlFor="tips">Tip Presets (USDC, comma-separated)</Label>
                     <Input
                       id="tips"
                       type="text"
@@ -755,7 +766,7 @@ function CreatorDashboardContent() {
                 <div className="space-y-2">
                   <Label htmlFor="recurring" className="flex items-center gap-2">
                     <Heart className="w-4 h-4" />
-                    Recurring Tip (USD/month)
+                    Recurring Tip (USDC/month)
                   </Label>
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -778,6 +789,13 @@ function CreatorDashboardContent() {
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {activeTab === 'transactions' && (
+          <TransactionLog 
+            creatorId={profile.id} 
+            walletAddress={profile.walletAddress}
+          />
         )}
       </div>
     </div>

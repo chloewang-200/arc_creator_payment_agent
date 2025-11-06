@@ -56,7 +56,7 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-3">
               <Button variant="ghost" asChild>
-                <Link href="/creator/login">My Dashboard</Link>
+                <Link href="/creator/login">Creator Dashboard</Link>
               </Button>
               <ChainSelector />
               <WalletConnectButton />

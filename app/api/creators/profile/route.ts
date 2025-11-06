@@ -64,11 +64,11 @@ export async function GET(request: NextRequest) {
     };
 
     const pricing = data.creator_pricing?.[0] ? {
-      monthlyUSD: data.creator_pricing[0].monthly_usd || 0,
+      monthlyUSD: data.creator_pricing[0].monthly_usd ?? null, // Use null instead of 0 for empty values
       tipPresetsUSD: data.creator_pricing[0].tip_presets_usd || [1, 2, 5],
-      recurringTipUSD: data.creator_pricing[0].recurring_tip_usd || 10,
+      recurringTipUSD: data.creator_pricing[0].recurring_tip_usd ?? null,
     } : {
-      monthlyUSD: 0,
+      monthlyUSD: null,
       tipPresetsUSD: [1, 2, 5],
       recurringTipUSD: 10,
     };
@@ -136,9 +136,9 @@ export async function PUT(request: NextRequest) {
         .from('creator_pricing')
         .upsert({
           creator_id: creator.id,
-          monthly_usd: pricing.monthlyUSD || 5,
+          monthly_usd: pricing.monthlyUSD ?? null, // Use null instead of default 5
           tip_presets_usd: pricing.tipPresetsUSD || [1, 2, 5],
-          recurring_tip_usd: pricing.recurringTipUSD,
+          recurring_tip_usd: pricing.recurringTipUSD ?? null,
         }, {
           onConflict: 'creator_id',
         });

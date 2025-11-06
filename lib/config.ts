@@ -1,5 +1,5 @@
 // Arc Network Configuration
-export const ARC_CHAIN_ID = 1243; // Arc Testnet (same chain ID)
+export const ARC_CHAIN_ID = 5042002; // Arc Testnet (correct chain ID for MetaMask)
 export const ARC_RPC_URL = process.env.NEXT_PUBLIC_ARC_RPC_URL || 'https://rpc.testnet.arc.network';
 
 // Contract addresses (update with deployed addresses)

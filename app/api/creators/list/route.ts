@@ -32,11 +32,11 @@ export async function GET() {
       aiBackground: creator.ai_background,
       hasContent: creator.has_content ?? true, // Use database value or default to true
       pricing: creator.creator_pricing?.[0] ? {
-        monthlyUSD: creator.creator_pricing[0].monthly_usd,
-        tipPresetsUSD: creator.creator_pricing[0].tip_presets_usd,
-        recurringTipUSD: creator.creator_pricing[0].recurring_tip_usd,
+        monthlyUSD: creator.creator_pricing[0].monthly_usd ?? null,
+        tipPresetsUSD: creator.creator_pricing[0].tip_presets_usd || [1, 2, 5],
+        recurringTipUSD: creator.creator_pricing[0].recurring_tip_usd ?? null,
       } : {
-        monthlyUSD: 0,
+        monthlyUSD: null,
         tipPresetsUSD: [1, 2, 5],
         recurringTipUSD: 10,
       },

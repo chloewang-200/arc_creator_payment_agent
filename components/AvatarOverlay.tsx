@@ -81,11 +81,15 @@ export function AvatarOverlay({
                 <Badge variant="secondary" className="text-xs">AI</Badge>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                {state === 'greet' && (
-                  <>
-                    Hi! I'm the creator's assistant. Full post is <span className="font-semibold text-foreground">${postPriceUSD.toFixed(2)}</span>, or <span className="font-semibold text-foreground">${monthlyUSD.toFixed(2)}/mo</span> for everything. Want a quick summary or just unlock?
-                  </>
-                )}
+                       {state === 'greet' && (
+                         <>
+                           Hi! I'm the creator's assistant. Full post is <span className="font-semibold text-foreground">${postPriceUSD.toFixed(2)}</span>
+                           {monthlyUSD && monthlyUSD > 0 && (
+                             <>, or <span className="font-semibold text-foreground">${monthlyUSD.toFixed(2)}/mo</span> for everything</>
+                           )}
+                           . Want a quick summary or just unlock?
+                         </>
+                       )}
                 {state === 'confirm' && selectedIntent && (
                   <>
                     You're about to{' '}
@@ -106,18 +110,20 @@ export function AvatarOverlay({
         </CardHeader>
 
         <CardContent className="space-y-3">
-          {state === 'greet' && (
-            <>
-              <Button onClick={handleUnlock} className="w-full" size="lg">
-                <Wallet className="w-4 h-4 mr-2" />
-                Unlock ${postPriceUSD.toFixed(2)}
-              </Button>
-              <Button onClick={handleMonthly} variant="secondary" className="w-full" size="lg">
-                <Crown className="w-4 h-4 mr-2" />
-                Monthly ${monthlyUSD.toFixed(2)}
-              </Button>
-            </>
-          )}
+                 {state === 'greet' && (
+                   <>
+                     <Button onClick={handleUnlock} className="w-full" size="lg">
+                       <Wallet className="w-4 h-4 mr-2" />
+                       Unlock ${postPriceUSD.toFixed(2)}
+                     </Button>
+                     {monthlyUSD && monthlyUSD > 0 && (
+                       <Button onClick={handleMonthly} variant="secondary" className="w-full" size="lg">
+                         <Crown className="w-4 h-4 mr-2" />
+                         Monthly ${monthlyUSD.toFixed(2)}
+                       </Button>
+                     )}
+                   </>
+                 )}
 
           {state === 'confirm' && (
             <Button onClick={() => setState('greet')} variant="outline" className="w-full">

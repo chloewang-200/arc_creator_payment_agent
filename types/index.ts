@@ -11,9 +11,9 @@ export type Post = {
 };
 
 export type SitePricing = {
-  monthlyUSD: number; // e.g., 5
+  monthlyUSD: number | null; // e.g., 5, or null if not set
   tipPresetsUSD: number[]; // [1, 2, 5]
-  recurringTipUSD?: number; // Optional recurring tip amount
+  recurringTipUSD?: number | null; // Optional recurring tip amount
 };
 
 export type Entitlements = {

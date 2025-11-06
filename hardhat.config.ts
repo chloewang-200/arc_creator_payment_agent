@@ -16,8 +16,8 @@ const config: HardhatUserConfig = {
   },
   networks: {
     arc: {
-      url: process.env.ARC_RPC_URL || 'https://rpc.arc.network',
-      chainId: 1243,
+      url: process.env.ARC_RPC_URL || 'https://rpc.testnet.arc.network',
+      chainId: 5042002, // Arc Testnet (correct chain ID)
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
     hardhat: {
@@ -31,10 +31,10 @@ const config: HardhatUserConfig = {
     customChains: [
       {
         network: 'arc',
-        chainId: 1243,
+        chainId: 5042002, // Arc Testnet (correct chain ID)
         urls: {
-          apiURL: 'https://explorer.arc.network/api',
-          browserURL: 'https://explorer.arc.network',
+          apiURL: 'https://testnet.arcscan.app/api',
+          browserURL: 'https://testnet.arcscan.app',
         },
       },
     ],
