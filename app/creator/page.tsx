@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { posts } from '@/data/posts';
@@ -11,7 +11,7 @@ import { ConsolidateBalance } from '@/components/ConsolidateBalance';
 import { CreatorAuthGuard } from '@/components/CreatorAuthGuard';
 import { TransactionLog } from '@/components/TransactionLog';
 import { PendingRefunds } from '@/components/PendingRefunds';
-import { RefundWalletSetup } from '@/components/RefundWalletSetup';
+import { PrivyRefundWalletSetup } from '@/components/PrivyRefundWalletSetup';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuth } from '@/lib/auth-context';
 import { WalletConnectButton } from '@/components/WalletConnectButton';
@@ -26,7 +26,8 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   ArrowLeft, Plus, Edit2, ExternalLink, DollarSign, Settings, User, Wallet, Heart,
-  LogOut, TrendingUp, Users, FileText, Sparkles, BarChart3, CreditCard, Loader2
+  LogOut, TrendingUp, Users, FileText, Sparkles, BarChart3, CreditCard, Loader2,
+  Mic, Headphones, Circle, Square, Copy
 } from 'lucide-react';
 import type { Post, SitePricing, Creator } from '@/types';
 
@@ -43,7 +44,8 @@ function CreatorDashboardContent() {
     walletAddress: undefined,
     hasContent: true,
     avatar: '/images/avatars/creator1.jpg',
-    refundWalletAddress: undefined,
+    voicePreviewEnabled: false,
+    voiceCloneStatus: 'missing',
   });
   const [editingPost, setEditingPost] = useState<string | null>(null);
   const [newPost, setNewPost] = useState<Partial<Post>>({
@@ -59,6 +61,37 @@ function CreatorDashboardContent() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [tempProfile, setTempProfile] = useState<Partial<Creator>>(profile);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [isUploadingVoice, setIsUploadingVoice] = useState(false);
+  const [voiceStatusMessage, setVoiceStatusMessage] = useState<string | null>(null);
+  const [generatingPreviewPostId, setGeneratingPreviewPostId] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [recordingError, setRecordingError] = useState<string | null>(null);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordedPreviewUrl, setRecordedPreviewUrl] = useState<string | null>(null);
+  const [voiceScriptCopied, setVoiceScriptCopied] = useState(false);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordingDurationRef = useRef(0);
+  const voicePreviewsEnabled =
+    (tempProfile.voicePreviewEnabled ?? profile.voicePreviewEnabled) ?? false;
+  const MAX_VOICE_SECONDS = 10;
+  const sampleVoiceScript = `Hey, thanks for supporting my work on Arc! I'm testing my voice so you can hear short previews of my posts. Expect nerdy deep dives, honest takes, and plenty of practical tips. Appreciate you listening!`;
+
+  useEffect(() => {
+    return () => {
+      if (recordedPreviewUrl) {
+        URL.revokeObjectURL(recordedPreviewUrl);
+      }
+      recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+    };
+  }, [recordedPreviewUrl]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -136,6 +169,150 @@ function CreatorDashboardContent() {
     setHasUnsavedChanges(true);
   };
 
+  const resetRecording = () => {
+    if (recordedPreviewUrl) {
+      URL.revokeObjectURL(recordedPreviewUrl);
+    }
+    setRecordedBlob(null);
+    setRecordedPreviewUrl(null);
+    setRecordingDuration(0);
+    recordingDurationRef.current = 0;
+    setRecordingError(null);
+  };
+
+  const stopRecording = () => {
+    if (!mediaRecorderRef.current) return;
+    mediaRecorderRef.current.stop();
+    setIsRecording(false);
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+    recordingStreamRef.current = null;
+  };
+
+  const startRecording = async () => {
+    if (isRecording) return;
+    setRecordingError(null);
+    resetRecording();
+
+    try {
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Recording is not supported in this browser.');
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      recordingChunksRef.current = [];
+      recordingStreamRef.current = stream;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordingChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(recordingChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        if (blob.size === 0) {
+          setRecordingError('Could not capture audio. Please try again.');
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        setRecordedBlob(blob);
+        setRecordedPreviewUrl(url);
+        setRecordingDuration((prev) => (prev === 0 ? recordingDurationRef.current : prev));
+      };
+
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+      setRecordingDuration(0);
+      recordingDurationRef.current = 0;
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingDuration((prev) => {
+          const next = Math.min(MAX_VOICE_SECONDS, prev + 1);
+          recordingDurationRef.current = next;
+          if (next >= MAX_VOICE_SECONDS) {
+            stopRecording();
+          }
+          return next;
+        });
+      }, 1000);
+    } catch (error: unknown) {
+      console.error('Failed to start recording:', error);
+      setRecordingError((error as Error)?.message || 'Microphone permission denied.');
+      recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+      recordingStreamRef.current = null;
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+    }
+  };
+
+  const handleVoiceUpload = async (file: Blob, durationSeconds?: number) => {
+    if (!profile.id) {
+      alert('Please save your profile first before uploading a voice sample.');
+      return;
+    }
+
+    setIsUploadingVoice(true);
+    setVoiceStatusMessage(null);
+
+    try {
+      const formData = new FormData();
+      const fileName = file instanceof File ? (file.name || 'voice-sample.webm') : 'recorded-voice.webm';
+      const mimeType = file.type || 'audio/webm';
+      const uploadFile = file instanceof File ? file : new File([file], fileName, { type: mimeType });
+
+      formData.append('creatorId', profile.id);
+      formData.append('voiceSample', uploadFile);
+      if (durationSeconds !== undefined) {
+        formData.append('durationSeconds', String(durationSeconds));
+      }
+
+      const response = await fetch('/api/creators/voice', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to upload voice sample');
+      }
+
+      setProfile((prev) => ({
+        ...prev,
+        voiceSampleUrl: data.voiceSampleUrl,
+        voiceSampleDurationSeconds: data.durationSeconds,
+        voicePreviewEnabled: true,
+        voiceCloneStatus: 'ready',
+        elevenLabsVoiceId: data.elevenLabsVoiceId,
+      }));
+      setTempProfile((prev) => ({
+        ...prev,
+        voiceSampleUrl: data.voiceSampleUrl,
+        voiceSampleDurationSeconds: data.durationSeconds,
+        voicePreviewEnabled: true,
+        voiceCloneStatus: 'ready',
+        elevenLabsVoiceId: data.elevenLabsVoiceId,
+      }));
+
+      setVoiceStatusMessage('Voice sample synced! Click Save to keep previews enabled.');
+      if (recordedBlob) {
+        resetRecording();
+      }
+    } catch (error: unknown) {
+      console.error('Voice upload failed:', error);
+      setVoiceStatusMessage((error as Error)?.message || 'Failed to upload voice sample.');
+    } finally {
+      setIsUploadingVoice(false);
+    }
+  };
+
   // Save profile to database (called when Save button is clicked)
   const saveProfile = async () => {
     if (!user?.email) {
@@ -161,6 +338,11 @@ function CreatorDashboardContent() {
           aiTone: tempProfile.aiTone,
           aiPersonality: tempProfile.aiPersonality,
           aiBackground: tempProfile.aiBackground,
+          voicePreviewEnabled: tempProfile.voicePreviewEnabled ?? false,
+          voiceSampleUrl: tempProfile.voiceSampleUrl,
+          voiceSampleDurationSeconds: tempProfile.voiceSampleDurationSeconds,
+          voiceCloneStatus: tempProfile.voiceCloneStatus,
+          elevenLabsVoiceId: tempProfile.elevenLabsVoiceId,
           pricing: pricing,
         }),
       });
@@ -205,6 +387,45 @@ function CreatorDashboardContent() {
     } catch (error) {
       console.error('Error updating price:', error);
       alert('Failed to update price. Please try again.');
+    }
+  };
+
+  const handleGenerateVoicePreview = async (postId: string) => {
+    if (!voicePreviewsEnabled) {
+      alert('Enable voice previews and upload a sample before generating audio.');
+      return;
+    }
+
+    setGeneratingPreviewPostId(postId);
+    try {
+      const response = await fetch('/api/posts/voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate preview audio');
+      }
+
+      setPostsList((prev) =>
+        prev.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                voicePreviewUrl: data.previewUrl,
+                voicePreviewStatus: 'ready',
+                voicePreviewDurationSeconds: data.durationSeconds,
+              }
+            : post
+        )
+      );
+    } catch (error: unknown) {
+      console.error('Failed to generate voice preview:', error);
+      alert((error as Error)?.message || 'Failed to generate voice preview');
+    } finally {
+      setGeneratingPreviewPostId(null);
     }
   };
 
@@ -652,6 +873,47 @@ function CreatorDashboardContent() {
                                   </Link>
                                 </Button>
                               </div>
+                              <div className="mt-4 rounded-xl border border-dashed border-blue-200 bg-blue-50/60 p-4">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-semibold flex items-center gap-2 text-blue-900">
+                                      <Headphones className="w-4 h-4" />
+                                      10-second AI voice preview
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Status: {post.voicePreviewStatus || 'missing'}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    className="gap-2"
+                                    disabled={!voicePreviewsEnabled || generatingPreviewPostId === post.id}
+                                    onClick={() => handleGenerateVoicePreview(post.id)}
+                                  >
+                                    {generatingPreviewPostId === post.id ? (
+                                      <>
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                        Generating...
+                                      </>
+                                    ) : (
+                                      <>
+                                        {post.voicePreviewStatus === 'ready' ? 'Regenerate' : 'Generate'} audio
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                                {!voicePreviewsEnabled && (
+                                  <p className="text-xs text-muted-foreground mt-2">
+                                    Enable voice previews and save your profile to activate this button.
+                                  </p>
+                                )}
+                                {post.voicePreviewUrl && (
+                                  <audio controls className="w-full mt-3" src={post.voicePreviewUrl}>
+                                    Your browser does not support audio playback.
+                                  </audio>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </CardContent>
@@ -779,6 +1041,151 @@ function CreatorDashboardContent() {
                     {hasUnsavedChanges && !showSavedMessage && (
                       <span className="text-sm text-muted-foreground">You have unsaved changes</span>
                     )}
+                  </div>
+                </div>
+
+                {/* Voice previews */}
+                <div className="space-y-4 pt-4 border-t">
+                  <div className="flex items-center gap-2">
+                    <Mic className="w-4 h-4 text-blue-600" />
+                    <Label className="text-base font-semibold">Voice Previews (10s via ElevenLabs)</Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Upload a short voice sample to let your AI voice read up to 10 seconds of each locked post for unlocked supporters.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Badge variant={profile.voiceCloneStatus === 'ready' ? 'default' : 'outline'}>
+                      {profile.voiceCloneStatus === 'ready' ? 'Voice ready' : 'Voice missing'}
+                    </Badge>
+                    {voicePreviewsEnabled && (
+                      <Badge variant="secondary">Enabled for paywall</Badge>
+                    )}
+                  </div>
+                  {profile.voiceSampleUrl && (
+                    <div className="space-y-2">
+                      <Label className="text-sm text-muted-foreground">Current voice sample</Label>
+                      <audio controls className="w-full" src={profile.voiceSampleUrl}>
+                        Your browser does not support audio playback.
+                      </audio>
+                    </div>
+                  )}
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Sample script for recordings</p>
+                        <p className="text-xs text-muted-foreground">Read this line to keep tone and pacing consistent.</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-2"
+                        onClick={copySampleScript}
+                      >
+                        <Copy className="w-3 h-3" />
+                        {voiceScriptCopied ? 'Copied!' : 'Copy text'}
+                      </Button>
+                    </div>
+                    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                      {sampleVoiceScript}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Upload new sample (max 10 MB)</Label>
+                    <Input
+                      type="file"
+                      accept="audio/*"
+                      disabled={isUploadingVoice}
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) {
+                          handleVoiceUpload(e.target.files[0]);
+                          e.target.value = '';
+                        }
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      We only play 10 seconds per post on the free ElevenLabs tier. Clear audio works best.
+                    </p>
+                    {isUploadingVoice && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-2">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Uploading & syncing with ElevenLabs...
+                      </p>
+                    )}
+                    {voiceStatusMessage && (
+                      <p className="text-xs text-blue-600">{voiceStatusMessage}</p>
+                    )}
+                  </div>
+                  <div className="space-y-3 rounded-xl border border-dashed border-blue-200 bg-blue-50/40 p-4">
+                    <div className="flex items-center gap-2">
+                      <Mic className="w-4 h-4 text-blue-600" />
+                      <div>
+                        <p className="text-sm font-semibold text-blue-900">Record directly in browser</p>
+                        <p className="text-xs text-muted-foreground">Capture up to {MAX_VOICE_SECONDS} seconds and upload automatically.</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button
+                        size="sm"
+                        className="gap-2"
+                        disabled={isRecording}
+                        onClick={startRecording}
+                      >
+                        <Circle className="w-3 h-3" />
+                        Start recording
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="gap-2"
+                        disabled={!isRecording}
+                        onClick={stopRecording}
+                      >
+                        <Square className="w-3 h-3" />
+                        Stop
+                      </Button>
+                      <span className="text-sm font-mono text-blue-900">
+                        {recordingDuration.toString().padStart(2, '0')}s / {MAX_VOICE_SECONDS}s
+                      </span>
+                    </div>
+                    {recordingError && (
+                      <p className="text-xs text-red-500">{recordingError}</p>
+                    )}
+                    {recordedBlob && recordedPreviewUrl && (
+                      <div className="space-y-2">
+                        <audio controls className="w-full" src={recordedPreviewUrl}>
+                          Your browser does not support audio playback.
+                        </audio>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={resetRecording}
+                          >
+                            Discard
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => handleVoiceUpload(recordedBlob, recordingDuration || undefined)}
+                            disabled={isUploadingVoice}
+                          >
+                            Upload recording
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="voicePreviewEnabled"
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={voicePreviewsEnabled}
+                      onChange={(e) => handleProfileChange({ voicePreviewEnabled: e.target.checked })}
+                    />
+                    <Label htmlFor="voicePreviewEnabled" className="text-sm">
+                      Enable AI voice previews on locked posts
+                    </Label>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -954,10 +1361,9 @@ function CreatorDashboardContent() {
           <div className="space-y-6">
             {/* Automated Refund Wallet Setup */}
             {profile.id && profile.walletAddress && (
-              <RefundWalletSetup
+              <PrivyRefundWalletSetup
                 creatorId={profile.id}
                 creatorWallet={profile.walletAddress as `0x${string}`}
-                refundWalletAddress={profile.refundWalletAddress as `0x${string}` | undefined}
               />
             )}
 
@@ -990,3 +1396,12 @@ export default function CreatorDashboard() {
     </ErrorBoundary>
   );
 }
+  const copySampleScript = async () => {
+    try {
+      await navigator.clipboard.writeText(sampleVoiceScript);
+      setVoiceScriptCopied(true);
+      setTimeout(() => setVoiceScriptCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy sample script:', error);
+    }
+  };

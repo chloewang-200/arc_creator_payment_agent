@@ -8,6 +8,11 @@ export type Post = {
   creatorId: string;
   createdAt: string;
   contentType: 'post' | 'podcast' | 'video' | 'article';
+  voicePreviewUrl?: string | null;
+  voicePreviewDurationSeconds?: number | null;
+  voicePreviewStatus?: 'missing' | 'pending' | 'ready' | 'failed';
+  voicePreviewText?: string | null;
+  voicePreviewGeneratedAt?: string | null;
 };
 
 export type SitePricing = {
@@ -44,6 +49,11 @@ export type Creator = {
   aiTone?: string; // e.g., "friendly", "professional", "casual", "enthusiastic"
   aiBackground?: string; // Additional context for the AI
   aiPersonality?: string; // Custom personality traits
+  voiceSampleUrl?: string | null;
+  voiceSampleDurationSeconds?: number | null;
+  voiceCloneStatus?: 'missing' | 'pending' | 'ready' | 'failed';
+  elevenLabsVoiceId?: string | null;
+  voicePreviewEnabled?: boolean;
 };
 
 export type PaymentIntent = {

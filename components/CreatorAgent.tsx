@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { BlobAvatar } from '@/components/BlobAvatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Sparkles, Send, Loader2, X } from 'lucide-react';
@@ -20,12 +20,13 @@ import type { AvatarMessage, PaymentIntent } from '@/types';
 interface CreatorAgentProps {
   creatorName: string;
   creatorId: string;
+  autoOpen?: boolean;
 }
 
-export function CreatorAgent({ creatorName, creatorId }: CreatorAgentProps) {
+export function CreatorAgent({ creatorName, creatorId, autoOpen = false }: CreatorAgentProps) {
   // Use Cloudflare Agents if enabled, otherwise use mock AI
   if (isAgentEnabled()) {
-    return <CreatorAgentWithCloudflare creatorName={creatorName} creatorId={creatorId} />;
+    return <CreatorAgentWithCloudflare creatorName={creatorName} creatorId={creatorId} autoOpen={autoOpen} />;
   }
 
   // Fallback to mock AI (current implementation)
@@ -46,7 +47,8 @@ export function CreatorAgent({ creatorName, creatorId }: CreatorAgentProps) {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [selectedIntent, setSelectedIntent] = useState<PaymentIntent | null>(null);
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(autoOpen);
+  const [showTooltip, setShowTooltip] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -254,14 +256,27 @@ export function CreatorAgent({ creatorName, creatorId }: CreatorAgentProps) {
   };
 
   if (!isOpen) {
+    const firstName = creatorName.split(' ')[0];
     return (
-      <Button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-2xl z-50 bg-primary hover:bg-primary/90"
-        size="icon"
+      <div
+        className="fixed bottom-4 right-4 z-50"
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
       >
-        <Sparkles className="w-6 h-6" />
-      </Button>
+        {showTooltip && (
+          <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-foreground text-background rounded-lg shadow-lg text-sm whitespace-nowrap animate-in fade-in slide-in-from-bottom-2">
+            Chat with {firstName}'s agent
+            <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-foreground"></div>
+          </div>
+        )}
+        <Button
+          onClick={() => setIsOpen(true)}
+          className="h-14 w-14 rounded-full shadow-2xl bg-primary hover:bg-primary/90 transition-all duration-200 hover:scale-110"
+          size="icon"
+        >
+          <span className="text-2xl">👋</span>
+        </Button>
+      </div>
     );
   }
 
@@ -270,14 +285,12 @@ export function CreatorAgent({ creatorName, creatorId }: CreatorAgentProps) {
       <Card className="fixed bottom-4 right-4 w-96 h-[600px] shadow-2xl border-primary/20 flex flex-col z-50 overflow-hidden pt-0">
         <CardHeader className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground pb-4 pt-4 rounded-t-xl">
           <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10 border-2 border-primary-foreground/20">
-              {creator?.avatar && (
-                <AvatarImage src={creator.avatar} alt={creatorName} />
-              )}
-              <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground">
-                <Sparkles className="w-5 h-5" />
-              </AvatarFallback>
-            </Avatar>
+            <BlobAvatar
+              creatorId={creatorId}
+              creatorName={creatorName}
+              className="h-10 w-10"
+              size={40}
+            />
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <span className="font-semibold">{aiName}</span>

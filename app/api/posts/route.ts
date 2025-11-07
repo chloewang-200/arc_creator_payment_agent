@@ -49,6 +49,11 @@ export async function GET(request: NextRequest) {
       contentType: post.content_type || 'post',
       includedInSubscription: post.included_in_subscription,
       createdAt: post.created_at,
+      voicePreviewUrl: post.voice_preview_url,
+      voicePreviewDurationSeconds: post.voice_preview_duration_seconds,
+      voicePreviewStatus: post.voice_preview_status,
+      voicePreviewText: post.voice_preview_text,
+      voicePreviewGeneratedAt: post.voice_preview_generated_at,
     }));
 
     return NextResponse.json({ posts: transformedPosts });
@@ -73,6 +78,11 @@ export async function POST(request: NextRequest) {
       priceUSD,
       contentType,
       includedInSubscription,
+      voicePreviewUrl,
+      voicePreviewDurationSeconds,
+      voicePreviewStatus,
+      voicePreviewText,
+      voicePreviewGeneratedAt,
     } = body;
 
     if (!creatorEmail || !title || !intro || !content) {
@@ -107,6 +117,11 @@ export async function POST(request: NextRequest) {
         price_usd: priceUSD || 0.69,
         content_type: contentType || 'post',
         included_in_subscription: includedInSubscription !== false,
+        voice_preview_url: voicePreviewUrl,
+        voice_preview_duration_seconds: voicePreviewDurationSeconds,
+        voice_preview_status: voicePreviewStatus,
+        voice_preview_text: voicePreviewText,
+        voice_preview_generated_at: voicePreviewGeneratedAt,
       })
       .select()
       .single();
@@ -125,6 +140,11 @@ export async function POST(request: NextRequest) {
         contentType: post.content_type,
         includedInSubscription: post.included_in_subscription,
         createdAt: post.created_at,
+        voicePreviewUrl: post.voice_preview_url,
+        voicePreviewDurationSeconds: post.voice_preview_duration_seconds,
+        voicePreviewStatus: post.voice_preview_status,
+        voicePreviewText: post.voice_preview_text,
+        voicePreviewGeneratedAt: post.voice_preview_generated_at,
       },
     });
   } catch (error: any) {
@@ -148,6 +168,11 @@ export async function PUT(request: NextRequest) {
       priceUSD,
       contentType,
       includedInSubscription,
+      voicePreviewUrl,
+      voicePreviewDurationSeconds,
+      voicePreviewStatus,
+      voicePreviewText,
+      voicePreviewGeneratedAt,
     } = body;
 
     if (!postId) {
@@ -164,6 +189,11 @@ export async function PUT(request: NextRequest) {
     if (priceUSD !== undefined) updateData.price_usd = priceUSD;
     if (contentType !== undefined) updateData.content_type = contentType;
     if (includedInSubscription !== undefined) updateData.included_in_subscription = includedInSubscription;
+    if (voicePreviewUrl !== undefined) updateData.voice_preview_url = voicePreviewUrl;
+    if (voicePreviewDurationSeconds !== undefined) updateData.voice_preview_duration_seconds = voicePreviewDurationSeconds;
+    if (voicePreviewStatus !== undefined) updateData.voice_preview_status = voicePreviewStatus;
+    if (voicePreviewText !== undefined) updateData.voice_preview_text = voicePreviewText;
+    if (voicePreviewGeneratedAt !== undefined) updateData.voice_preview_generated_at = voicePreviewGeneratedAt;
 
     const { data: post, error: postError } = await supabase
       .from('posts')
@@ -186,6 +216,11 @@ export async function PUT(request: NextRequest) {
         contentType: post.content_type,
         includedInSubscription: post.included_in_subscription,
         createdAt: post.created_at,
+        voicePreviewUrl: post.voice_preview_url,
+        voicePreviewDurationSeconds: post.voice_preview_duration_seconds,
+        voicePreviewStatus: post.voice_preview_status,
+        voicePreviewText: post.voice_preview_text,
+        voicePreviewGeneratedAt: post.voice_preview_generated_at,
       },
     });
   } catch (error: any) {

@@ -64,3 +64,13 @@ $ forge --help
 $ anvil --help
 $ cast --help
 ```
+
+## ElevenLabs Voice Previews
+
+Creators can now share a 10-second AI narration for every locked post.
+
+1. In Supabase Storage, create two public buckets: `creator-voices` (raw uploads) and `post-voice-previews` (generated clips). If you need different names, override them with `SUPABASE_VOICE_BUCKET` and `SUPABASE_POST_AUDIO_BUCKET`.
+2. Add the following to `.env.local` (and keep the real secrets out of git):
+   - `ELEVENLABS_API_KEY`
+   - `ELEVENLABS_MODEL_ID` (optional, defaults to `eleven_turbo_v2`)
+3. Creators visit `/creator`, record a quick clip in-browser (or upload a short <10 MB sample), enable the toggle, then use "Generate audio" beside each post. We automatically trim text so every clip stays within the free 10-second ElevenLabs tier, and unlocked supporters see an inline audio player above the post body.

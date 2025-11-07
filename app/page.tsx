@@ -1,51 +1,28 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { useAccount } from 'wagmi';
-import { WalletConnectButton } from '@/components/WalletConnectButton';
-import { ChainSelector } from '@/components/ChainSelector';
-import { UniversalBalance } from '@/components/UniversalBalance';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
-import { Sparkles, Users, TrendingUp, Heart, Wallet, Crown, Loader2 } from 'lucide-react';
-import type { Creator } from '@/types';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Sparkles, ArrowRight, Check, Zap, DollarSign, Wallet, TrendingUp } from 'lucide-react';
+import { BlobAvatar } from '@/components/BlobAvatar';
+import { ForFansContent } from '@/components/ForFansContent';
+import { WalletConnectButton } from '@/components/WalletConnectButton';
+import { ChainSelector } from '@/components/ChainSelector';
 
 export default function Home() {
-  const { isConnected } = useAccount();
-  const [creators, setCreators] = useState<Creator[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const loadCreators = async () => {
-      try {
-        const response = await fetch('/api/creators/list');
-        if (response.ok) {
-          const data = await response.json();
-          setCreators(data.creators || []);
-        }
-      } catch (error) {
-        console.error('Error loading creators:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadCreators();
-  }, []);
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState('creators');
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       {/* Soft pastel background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Yellow - top right (large, prominent) */}
         <div className="absolute -top-32 -right-32 w-[800px] h-[800px] pastel-yellow rounded-full blur-3xl animate-float" style={{ animationDelay: '0s' }}></div>
-        {/* Blue - middle left (large, prominent) */}
         <div className="absolute top-1/3 -left-32 w-[900px] h-[900px] pastel-blue rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
-        {/* Pink - bottom right (large, prominent) */}
         <div className="absolute -bottom-32 -right-24 w-[850px] h-[850px] pastel-pink rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }}></div>
       </div>
 
@@ -58,136 +35,208 @@ export default function Home() {
                 <Sparkles className="w-5 h-5 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">
-                  Arc Creator
-                </h1>
+                <h1 className="text-xl font-bold text-foreground">Arc Creator</h1>
                 <p className="text-xs text-muted-foreground">Creator Platform</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <ChainSelector />
+              <WalletConnectButton />
               <Button variant="ghost" asChild>
                 <Link href="/creator/login">Creator Dashboard</Link>
               </Button>
-              <ChainSelector />
-              <WalletConnectButton />
             </div>
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 relative z-10">
-        <div className="text-center mb-20">
-          <Badge variant="secondary" className="mb-6 px-3 py-1 text-xs">
-            <TrendingUp className="w-3 h-3 mr-1.5" />
-            Powered by Arc Network
-          </Badge>
-          <h2 className="text-5xl md:text-6xl font-bold tracking-tight mb-6 text-foreground">
-            Discover Creators,<br />Support Creators
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Explore creators, unlock premium content, subscribe monthly, or send tips.{' '}
-            <br/>
-            All powered by <span className="bg-blue-200/60 dark:bg-yellow-900/40 text-foreground px-1 py-0.5 font-medium">
-              USDC on Arc
-            </span>.
-          </p>
-        </div>
-
-        {/* Creators Grid */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      {/* Main Content with Tabs */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="flex justify-center mb-8">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="creators" className="text-base font-semibold">
+                For Creators
+              </TabsTrigger>
+              <TabsTrigger value="fans" className="text-base font-semibold">
+                For Fans
+              </TabsTrigger>
+            </TabsList>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-            {creators.map((creator) => (
-            <Card key={creator.id} className="group gradient-card-hover overflow-hidden">
-              <CardHeader className="pb-3">
-                <div className="flex items-start gap-4 mb-4">
-                  <Avatar className="h-28 w-28 border border-border/60 shadow-sm">
-                    {creator.avatar && (
-                      <AvatarImage src={creator.avatar} alt={creator.name} />
-                    )}
-                    <AvatarFallback className="bg-muted text-foreground text-lg font-semibold">
-                      {creator.name.split(' ').map(n => n[0]).join('')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <CardTitle className="text-lg mb-1 font-semibold text-foreground">
-                      {creator.name}
-                    </CardTitle>
-                    <CardDescription className="text-xs">
-                      @{creator.username}
-                    </CardDescription>
-                  </div>
-                </div>
-                <CardDescription className="line-clamp-2 text-sm">
-                  {creator.bio || 'No description available.'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {creator.hasContent && (
-                  <div className="flex items-center gap-3 text-sm">
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20">
-                      <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse" />
-                      <span className="font-semibold bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
-                        Premium Content
-                      </span>
-                    </div>
-                    {creator.pricing.monthlyUSD && creator.pricing.monthlyUSD > 0 && (
-                      <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-gradient-to-r from-yellow-100/50 via-yellow-50/30 to-transparent border border-yellow-200/30">
-                        <Crown className="w-3.5 h-3.5 text-yellow-600" />
-                        <span className="font-semibold text-yellow-700">${creator.pricing.monthlyUSD}/mo</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {!creator.hasContent && (
-                  <Badge variant="outline" className="w-full justify-center py-1.5">
-                    <Heart className="w-3 h-3 mr-1.5" />
-                    Tips Only
-                  </Badge>
-                )}
 
-                {creator.stats && (
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1.5">
-                      <Users className="w-3 h-3" />
-                      <span>{creator.stats.followers?.toLocaleString() || 0}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Wallet className="w-3 h-3" />
-                      <span>${(creator.stats.totalEarnings || 0).toLocaleString()}</span>
-                    </div>
-                  </div>
-                )}
-
-                <Separator />
-              </CardContent>
-              <div className="px-6 pb-4">
-                <Button asChild className="w-full" variant="default">
-                  <Link href={`/creator/${creator.username}`}>
-                    View Creator
-                  </Link>
+          {/* For Creators Tab */}
+          <TabsContent value="creators" className="mt-8">
+            <div className="text-center mb-20">
+              <Badge variant="secondary" className="mb-6 px-3 py-1 text-xs">
+                <TrendingUp className="w-3 h-3 mr-1.5" />
+                Powered by Arc Network
+              </Badge>
+              <h2 className="text-5xl md:text-6xl font-bold tracking-tight mb-6 text-foreground">
+                Get paid the moment<br />someone consumes your work
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-6">
+                Launch your pay-per-content business in minutes, accept feeless USDC payments worldwide, and keep ownership of your audience.
+                <br/>
+                All powered by <span className="bg-blue-200/60 dark:bg-yellow-900/40 text-foreground px-1 py-0.5 font-medium">
+                  USDC on Arc
+                </span>.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+                <Button 
+                  size="lg" 
+                  className="text-lg px-8 py-2 h-auto"
+                  onClick={() => router.push('/creator/login')}
+                >
+                  Start Publishing
+                  <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </div>
-            </Card>
-          ))}
+            </div>
 
-            {creators.length === 0 && (
-              <Card className="text-center py-12">
-                <CardContent>
-                  <p className="text-muted-foreground mb-4">No creators available yet.</p>
-                  <Button asChild>
-                    <Link href="/creator">Become a creator →</Link>
-                  </Button>
+            {/* Key Features */}
+            <div className="grid md:grid-cols-3 gap-6 mb-24">
+              <Card className="border-2 border-primary/20 bg-card/50 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                    <Zap className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">Instant earnings per piece</h3>
+                  <p className="text-muted-foreground">Paid directly in USDC. No waiting, no delays.</p>
                 </CardContent>
               </Card>
-            )}
-          </div>
-        )}
+              <Card className="border-2 border-primary/20 bg-card/50 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                    <DollarSign className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">Fans pay only for what they consume</h3>
+                  <p className="text-muted-foreground">No subscriptions required. Pay-per-content model.</p>
+                </CardContent>
+              </Card>
+              <Card className="border-2 border-primary/20 bg-card/50 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                    <Wallet className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">Earn through sales and tips</h3>
+                  <p className="text-muted-foreground">Multiple revenue streams from content unlocks and fan tips.</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Bloby Section */}
+            <div className="relative max-w-5xl mx-auto mb-24">
+              <div className="relative overflow-hidden rounded-3xl bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-2xl">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div>
+                <div className="relative flex flex-col md:flex-row items-center gap-8 p-8 md:p-12">
+                  <div className="relative shrink-0">
+                    <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl animate-pulse"></div>
+                    <BlobAvatar
+                      className="h-32 w-32 md:h-40 md:w-40 relative z-10"
+                      size={160}
+                    />
+                  </div>
+                  <div className="flex-1 text-center md:text-left space-y-4">
+                    <div className="flex items-center justify-center md:justify-start gap-3">
+                      <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                        Meet Bloby
+                      </h2>
+                      <Sparkles className="w-8 h-8 text-primary animate-pulse" />
+                    </div>
+                    <p className="text-xl text-muted-foreground leading-relaxed max-w-2xl">
+                      Your AI assistant that handles all payment transactions seamlessly. Bloby helps you manage earnings, process tips, and facilitate content unlocks—so you can focus on creating great content.
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-4">
+                      <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-background/80 border border-border/50 shadow-sm">
+                        <Check className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium text-foreground">Automatic Payment Processing</span>
+                      </div>
+                      <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-background/80 border border-border/50 shadow-sm">
+                        <Check className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium text-foreground">24/7 Customer Support</span>
+                      </div>
+                      <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-background/80 border border-border/50 shadow-sm">
+                        <Check className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium text-foreground">Multi-Chain USDC</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* How It Works */}
+            <div className="mb-24">
+              <h2 className="text-4xl md:text-5xl font-bold text-center mb-12">How Arc Creator Works</h2>
+              <div className="grid md:grid-cols-3 gap-8">
+                <div className="text-center">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl font-bold text-primary">1</span>
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">Create Your Profile</h3>
+                  <p className="text-muted-foreground">Set up your creator profile in minutes. Connect your wallet and start publishing.</p>
+                </div>
+                <div className="text-center">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl font-bold text-primary">2</span>
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">Publish Content</h3>
+                  <p className="text-muted-foreground">Create and publish your content (articles, music, videos). Set your price per piece or enable tips.</p>
+                </div>
+                <div className="text-center">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl font-bold text-primary">3</span>
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">Get Paid Instantly</h3>
+                  <p className="text-muted-foreground">Bloby handles all payments. Earnings arrive in your wallet immediately in USDC.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats Section */}
+            <div className="bg-muted/30 rounded-3xl p-8 md:p-12 mb-24">
+              <h2 className="text-3xl md:text-4xl font-bold text-center mb-8">Platform Stats</h2>
+              <div className="grid md:grid-cols-3 gap-8">
+                <div className="text-center">
+                  <div className="text-4xl md:text-5xl font-bold text-primary mb-2">24</div>
+                  <p className="text-muted-foreground">Content (7d)</p>
+                  <p className="text-sm text-muted-foreground mt-1">New content published in the last 7 days</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-4xl md:text-5xl font-bold text-primary mb-2">23</div>
+                  <p className="text-muted-foreground">Comments + Tips (7d)</p>
+                  <p className="text-sm text-muted-foreground mt-1">Fan engagement from the past 7 days</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-4xl md:text-5xl font-bold text-primary mb-2">$146.19</div>
+                  <p className="text-muted-foreground">Creator Earnings (all-time)</p>
+                  <p className="text-sm text-muted-foreground mt-1">Feeless tips and paid unlocks delivered to creators</p>
+                </div>
+              </div>
+            </div>
+
+            {/* CTA Section */}
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">Ready to Start Earning?</h2>
+              <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+                Join creators who are already earning from their content. Bloby handles all the payment complexity so you can focus on what you do best.
+              </p>
+              <Button 
+                size="lg" 
+                className="text-lg px-8 py-6 h-auto"
+                onClick={() => router.push('/creator/login')}
+              >
+                Start Publishing
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+            </div>
+          </TabsContent>
+
+          {/* For Fans Tab */}
+          <TabsContent value="fans" className="mt-8">
+            <ForFansContent />
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* Footer */}

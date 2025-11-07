@@ -1,6 +1,7 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { Suspense } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
@@ -9,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { BlobAvatar } from '@/components/BlobAvatar';
 import { Separator } from '@/components/ui/separator';
 import { CreatorAgent } from '@/components/CreatorAgent';
 import { PaywallBlock } from '@/components/PaywallBlock';
@@ -19,9 +21,11 @@ import { CheckoutModal } from '@/components/CheckoutModal';
 import { ArrowLeft, Users, Wallet, FileText, Headphones, Video, Heart, Crown, Sparkles, Loader2 } from 'lucide-react';
 import type { Creator, Post, SitePricing, PaymentIntent } from '@/types';
 
-export default function CreatorPage() {
+function CreatorPageContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const creatorId = params.id as string;
+  const shouldOpenChat = searchParams.get('chat') === 'true';
   const { address, isConnected } = useAccount();
   const [creator, setCreator] = useState<Creator | null>(null);
   const [creatorPosts, setCreatorPosts] = useState<Post[]>([]);
@@ -31,6 +35,7 @@ export default function CreatorPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedIntent, setSelectedIntent] = useState<PaymentIntent | null>(null);
+  const [showBlobbyTooltip, setShowBlobbyTooltip] = useState(false);
 
   useEffect(() => {
     const loadCreatorAndPosts = async () => {
@@ -271,6 +276,41 @@ export default function CreatorPage() {
                   </div>
                 )}
               </div>
+              <div className="flex flex-col items-center gap-3">
+                <div
+                  className="relative cursor-pointer hover:scale-110 transition-transform duration-200"
+                  onClick={() => {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('chat', 'true');
+                    window.location.href = url.toString();
+                  }}
+                  onMouseEnter={() => setShowBlobbyTooltip(true)}
+                  onMouseLeave={() => setShowBlobbyTooltip(false)}
+                >
+                  <BlobAvatar
+                    className="h-36 w-36"
+                    size={144}
+                  />
+                  {showBlobbyTooltip && (
+                    <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-foreground text-background rounded-lg shadow-lg text-sm whitespace-nowrap animate-in fade-in slide-in-from-bottom-2 z-[60]">
+                      Chat with {creator.name.split(' ')[0]}'s Bloby
+                      <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-foreground"></div>
+                    </div>
+                  )}
+                </div>
+                <div 
+                  className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group"
+                  onClick={() => {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('chat', 'true');
+                    window.location.href = url.toString();
+                  }}
+                >
+                  <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                    Talk to {creator.name.split(' ')[0]}'s agent Bloby
+                  </span>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -392,6 +432,20 @@ export default function CreatorPage() {
                         {unlocked ? (
                           <UnlockAnimation>
                             <div className="prose prose-slate max-w-none">
+                              {post.voicePreviewUrl && (
+                                <div className="mb-4 rounded-xl border border-primary/40 bg-primary/5 p-4">
+                                  <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                                    <Headphones className="w-4 h-4" />
+                                    Listen to a {Math.min(10, post.voicePreviewDurationSeconds || 10)}s AI narration
+                                  </div>
+                                  <audio controls preload="none" className="w-full mt-2" src={post.voicePreviewUrl}>
+                                    Your browser does not support audio playback.
+                                  </audio>
+                                  <p className="text-xs text-muted-foreground mt-2">
+                                    Generated from {creator.name}'s voice sample via ElevenLabs.
+                                  </p>
+                                </div>
+                              )}
                               <Separator className="my-4" />
                               <div className="text-foreground/90 leading-relaxed whitespace-pre-line">
                                 {post.body}
@@ -403,6 +457,7 @@ export default function CreatorPage() {
                             post={post}
                             pricing={pricing}
                             creatorId={creator.id}
+                            creatorName={creator.name}
                             creatorAddress={creator.walletAddress}
                             onUnlock={handleUnlock}
                             onMonthly={handleMonthly}
@@ -418,7 +473,7 @@ export default function CreatorPage() {
         )}
       </div>
 
-      <CreatorAgent creatorName={creator.name} creatorId={creator.id} />
+      <CreatorAgent creatorName={creator.name} creatorId={creator.id} autoOpen={shouldOpenChat} />
 
       {selectedIntent && (
         <CheckoutModal
@@ -435,3 +490,17 @@ export default function CreatorPage() {
   );
 }
 
+export default function CreatorPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading creator page...</p>
+        </div>
+      </div>
+    }>
+      <CreatorPageContent />
+    </Suspense>
+  );
+}

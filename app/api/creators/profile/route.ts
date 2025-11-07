@@ -66,6 +66,11 @@ export async function GET(request: NextRequest) {
         followers: data.followers || 0,
         totalEarnings: data.total_earnings || 0,
       },
+      voiceSampleUrl: data.voice_sample_url,
+      voiceSampleDurationSeconds: data.voice_sample_duration_seconds,
+      voicePreviewEnabled: data.voice_preview_enabled ?? false,
+      voiceCloneStatus: data.voice_clone_status || 'missing',
+      elevenLabsVoiceId: data.elevenlabs_voice_id,
     };
 
     const pricing = data.creator_pricing?.[0] ? {
@@ -113,6 +118,11 @@ export async function PUT(request: NextRequest) {
       pricing,
       refundWalletAddress,
       refundWalletChainId,
+      voiceSampleUrl,
+      voiceSampleDurationSeconds,
+      voicePreviewEnabled,
+      voiceCloneStatus,
+      elevenLabsVoiceId,
     } = body;
 
     // Support updating by creatorId OR email+username+name
@@ -130,6 +140,11 @@ export async function PUT(request: NextRequest) {
       if (aiTone !== undefined) updateData.ai_tone = aiTone;
       if (aiPersonality !== undefined) updateData.ai_personality = aiPersonality;
       if (aiBackground !== undefined) updateData.ai_background = aiBackground;
+      if (voiceSampleUrl !== undefined) updateData.voice_sample_url = voiceSampleUrl;
+      if (voiceSampleDurationSeconds !== undefined) updateData.voice_sample_duration_seconds = voiceSampleDurationSeconds;
+      if (voicePreviewEnabled !== undefined) updateData.voice_preview_enabled = voicePreviewEnabled;
+      if (voiceCloneStatus !== undefined) updateData.voice_clone_status = voiceCloneStatus;
+      if (elevenLabsVoiceId !== undefined) updateData.elevenlabs_voice_id = elevenLabsVoiceId;
 
       const { data: creator, error: creatorError } = await supabase
         .from('creators')
@@ -175,6 +190,11 @@ export async function PUT(request: NextRequest) {
         ai_background: aiBackground,
         refund_wallet_address: refundWalletAddress,
         refund_wallet_chain_id: refundWalletChainId,
+        voice_sample_url: voiceSampleUrl,
+        voice_sample_duration_seconds: voiceSampleDurationSeconds,
+        voice_preview_enabled: voicePreviewEnabled,
+        voice_clone_status: voiceCloneStatus,
+        elevenlabs_voice_id: elevenLabsVoiceId,
       }, {
         onConflict: 'email',
       })

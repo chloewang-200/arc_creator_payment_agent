@@ -34,6 +34,11 @@ export async function GET() {
       aiPersonality: creator.ai_personality,
       aiBackground: creator.ai_background,
       hasContent: creator.has_content ?? true, // Use database value or default to true
+      voiceSampleUrl: creator.voice_sample_url,
+      voiceSampleDurationSeconds: creator.voice_sample_duration_seconds,
+      voicePreviewEnabled: creator.voice_preview_enabled ?? false,
+      voiceCloneStatus: creator.voice_clone_status || 'missing',
+      elevenLabsVoiceId: creator.elevenlabs_voice_id,
       pricing: creator.creator_pricing?.[0] ? {
         monthlyUSD: creator.creator_pricing[0].monthly_usd ?? null,
         tipPresetsUSD: creator.creator_pricing[0].tip_presets_usd || [1, 2, 5],

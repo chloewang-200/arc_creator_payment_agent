@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { CheckoutModal } from './CheckoutModal';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { BlobAvatar } from '@/components/BlobAvatar';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, Wallet, Crown } from 'lucide-react';
 import type { PaymentIntent } from '@/types';
@@ -15,6 +15,7 @@ interface AvatarOverlayProps {
   postPriceUSD: number;
   monthlyUSD: number | null;
   creatorId?: string;
+  creatorName?: string;
   creatorAddress?: `0x${string}`;
   onUnlock: () => void;
   onMonthly: () => void;
@@ -28,6 +29,7 @@ export function AvatarOverlay({
   postPriceUSD,
   monthlyUSD,
   creatorId,
+  creatorName,
   creatorAddress,
   onUnlock,
   onMonthly,
@@ -70,11 +72,12 @@ export function AvatarOverlay({
       <Card className="w-full max-w-sm border-primary/20 shadow-xl">
         <CardHeader className="pb-4">
           <div className="flex items-start gap-3">
-            <Avatar className="bg-gradient-to-br from-primary to-primary/60 border-2 border-primary/20">
-              <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
-                <Sparkles className="w-5 h-5" />
-              </AvatarFallback>
-            </Avatar>
+            <BlobAvatar
+              creatorId={creatorId || ''}
+              creatorName={creatorName || 'Creator'}
+              className="h-10 w-10"
+              size={40}
+            />
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-sm font-semibold">Creator's Assistant</span>

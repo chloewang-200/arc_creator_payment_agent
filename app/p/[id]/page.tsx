@@ -175,6 +175,9 @@ export default function PostPage() {
               <PaywallBlock
                 post={post}
                 pricing={pricing}
+                creatorId={creator.id}
+                creatorName={creator.name}
+                creatorAddress={creator.walletAddress}
                 onUnlock={handleUnlock}
                 onMonthly={handleMonthly}
               />
