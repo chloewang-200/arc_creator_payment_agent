@@ -15,7 +15,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, User } from 'lucide-react';
+import { ArrowLeft, User, Volume2, Loader2, Pause } from 'lucide-react';
 import type { Post, SitePricing } from '@/types';
 
 export default function PostPage() {
@@ -28,6 +28,10 @@ export default function PostPage() {
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
   const [pricing, setPricing] = useState<SitePricing>(defaultPricing);
   const [creator, setCreator] = useState(creators[0]);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const foundPost = posts.find((p) => p.id === postId);
@@ -117,6 +121,72 @@ export default function PostPage() {
     handleUnlock();
   };
 
+  const handleListen = async () => {
+    if (!address || !post) return;
+
+    // If audio already playing, pause it
+    if (isPlaying && audioElement) {
+      audioElement.pause();
+      setIsPlaying(false);
+      return;
+    }
+
+    // If we already have audio, play it
+    if (audioUrl && audioElement) {
+      audioElement.play();
+      setIsPlaying(true);
+      return;
+    }
+
+    // Generate new audio
+    setIsGeneratingAudio(true);
+    try {
+      const response = await fetch(
+        `/api/posts/${post.id}/audio?walletAddress=${address}`
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        alert(data.error || 'Failed to generate audio');
+        return;
+      }
+
+      // Create blob URL from response
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      setAudioUrl(url);
+
+      // Create audio element
+      const audio = new Audio(url);
+      audio.addEventListener('ended', () => setIsPlaying(false));
+      audio.addEventListener('pause', () => setIsPlaying(false));
+      audio.addEventListener('play', () => setIsPlaying(true));
+      setAudioElement(audio);
+
+      // Play audio
+      await audio.play();
+      setIsPlaying(true);
+    } catch (error) {
+      console.error('Error generating audio:', error);
+      alert('Failed to generate audio. Please try again.');
+    } finally {
+      setIsGeneratingAudio(false);
+    }
+  };
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioElement) {
+        audioElement.pause();
+        audioElement.src = '';
+      }
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioElement, audioUrl]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -149,6 +219,45 @@ export default function PostPage() {
 
               <Separator className="mb-6" />
             </div>
+
+            {/* Listen Button - Always visible if unlocked */}
+            {!isCheckingAccess && hasAccess && (
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <Button
+                    onClick={handleListen}
+                    disabled={isGeneratingAudio}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    {isGeneratingAudio ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Generating audio...
+                      </>
+                    ) : isPlaying ? (
+                      <>
+                        <Pause className="w-4 h-4" />
+                        Pause
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="w-4 h-4" />
+                        Listen to this post
+                      </>
+                    )}
+                  </Button>
+                  {audioUrl && !isGeneratingAudio && (
+                    <span className="text-sm text-muted-foreground">
+                      {creator.name}'s voice
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-amber-600">
+                  ⚠️ Demo limitation: Only first ~5 seconds due to ElevenLabs free tier
+                </p>
+              </div>
+            )}
 
             {/* Free Intro */}
             <div className="prose prose-slate max-w-none mb-8">

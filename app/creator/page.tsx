@@ -55,7 +55,7 @@ function CreatorDashboardContent() {
     priceUSD: 0.69,
     contentType: 'post',
   });
-  const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'settings' | 'transactions'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'ai-avatar' | 'voice' | 'settings' | 'transactions'>('overview');
   const [showSavedMessage, setShowSavedMessage] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -76,10 +76,14 @@ function CreatorDashboardContent() {
   const recordingStreamRef = useRef<MediaStream | null>(null);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingDurationRef = useRef(0);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const voicePreviewsEnabled =
     (tempProfile.voicePreviewEnabled ?? profile.voicePreviewEnabled) ?? false;
   const MAX_VOICE_SECONDS = 10;
-  const sampleVoiceScript = `Hey, thanks for supporting my work on Arc! I'm testing my voice so you can hear short previews of my posts. Expect nerdy deep dives, honest takes, and plenty of practical tips. Appreciate you listening!`;
+  const sampleVoiceScript = `Hey, thanks for supporting my work on Arc! I'm recording my voice so you can hear short previews of my posts. Appreciate you listening!`;
 
   useEffect(() => {
     return () => {
@@ -190,6 +194,85 @@ function CreatorDashboardContent() {
     }
     recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
     recordingStreamRef.current = null;
+
+    // Stop waveform animation
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    analyserRef.current = null;
+  };
+
+  const drawWaveform = () => {
+    if (!analyserRef.current || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const analyser = analyserRef.current;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const draw = () => {
+      animationFrameRef.current = requestAnimationFrame(draw);
+      analyser.getByteFrequencyData(dataArray);
+
+      // Clear canvas with light background
+      ctx.fillStyle = 'rgb(248, 250, 252)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw vertical bars (Apple/iOS style)
+      const barCount = 40; // Number of bars to show
+      const barWidth = (canvas.width / barCount) * 0.7;
+      const barGap = (canvas.width / barCount) * 0.3;
+
+      for (let i = 0; i < barCount; i++) {
+        // Sample from different parts of frequency spectrum
+        const dataIndex = Math.floor((i / barCount) * bufferLength);
+        const value = dataArray[dataIndex];
+
+        // Convert to bar height (0-1)
+        const normalizedValue = value / 255;
+        const barHeight = normalizedValue * (canvas.height * 0.8); // Max 80% of canvas height
+
+        // Calculate position (centered vertically)
+        const x = i * (barWidth + barGap);
+        const y = (canvas.height - barHeight) / 2;
+
+        // Draw rounded rectangle bar
+        ctx.fillStyle = 'rgb(59, 130, 246)'; // Blue color
+
+        // Draw rounded bar (with fallback for older browsers)
+        const radius = Math.min(barWidth / 2, 4);
+        if (barHeight < radius * 2) {
+          // Too small for rounded rect, just draw circle
+          ctx.beginPath();
+          ctx.arc(x + barWidth / 2, canvas.height / 2, barWidth / 2, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // Draw rounded rectangle
+          ctx.beginPath();
+          ctx.moveTo(x + radius, y);
+          ctx.lineTo(x + barWidth - radius, y);
+          ctx.arcTo(x + barWidth, y, x + barWidth, y + radius, radius);
+          ctx.lineTo(x + barWidth, y + barHeight - radius);
+          ctx.arcTo(x + barWidth, y + barHeight, x + barWidth - radius, y + barHeight, radius);
+          ctx.lineTo(x + radius, y + barHeight);
+          ctx.arcTo(x, y + barHeight, x, y + barHeight - radius, radius);
+          ctx.lineTo(x, y + radius);
+          ctx.arcTo(x, y, x + radius, y, radius);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+    };
+
+    draw();
   };
 
   const startRecording = async () => {
@@ -206,6 +289,19 @@ function CreatorDashboardContent() {
       const recorder = new MediaRecorder(stream);
       recordingChunksRef.current = [];
       recordingStreamRef.current = stream;
+
+      // Set up audio visualization
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const analyser = audioContext.createAnalyser();
+      const source = audioContext.createMediaStreamSource(stream);
+      source.connect(analyser);
+      analyser.fftSize = 2048;
+
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+
+      // Start waveform drawing
+      setTimeout(() => drawWaveform(), 100);
 
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -279,9 +375,11 @@ function CreatorDashboardContent() {
         body: formData,
       });
       const data = await response.json();
-
+      console.log(response);
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to upload voice sample');
+        const errorMsg = data.message || data.error || 'Failed to upload voice sample';
+        setVoiceStatusMessage(errorMsg);
+        return;
       }
 
       setProfile((prev) => ({
@@ -470,6 +568,16 @@ function CreatorDashboardContent() {
     }
   };
 
+  const copySampleScript = async () => {
+    try {
+      await navigator.clipboard.writeText(sampleVoiceScript);
+      setVoiceScriptCopied(true);
+      setTimeout(() => setVoiceScriptCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy sample script:', error);
+    }
+  };
+
   const totalEarnings = profile.stats?.totalEarnings || 0;
   const totalFollowers = profile.stats?.followers || 0;
   const totalPosts = postsList.length;
@@ -654,32 +762,46 @@ function CreatorDashboardContent() {
 
         {/* Tabs */}
         <div className="mb-6">
-          <div className="flex gap-2 border-b border-slate-200">
+          <div className="flex gap-2 border-b border-slate-200 flex-wrap">
             <Button
               variant={activeTab === 'overview' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('overview')}
-              className={`rounded-b-none ${activeTab === 'overview' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+              className={`!rounded-b-none !rounded-t-[2px] ${activeTab === 'overview' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               Overview
             </Button>
             <Button
               variant={activeTab === 'content' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('content')}
-              className={`rounded-b-none ${activeTab === 'content' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+              className={`!rounded-b-none !rounded-t-[2px] ${activeTab === 'content' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               Content
             </Button>
             <Button
+              variant={activeTab === 'ai-avatar' ? 'default' : 'ghost'}
+              onClick={() => setActiveTab('ai-avatar')}
+              className={`!rounded-b-none !rounded-t-[2px] ${activeTab === 'ai-avatar' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+            >
+              AI Avatar
+            </Button>
+            <Button
+              variant={activeTab === 'voice' ? 'default' : 'ghost'}
+              onClick={() => setActiveTab('voice')}
+              className={`!rounded-b-none !rounded-t-[2px] ${activeTab === 'voice' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+            >
+              Voice Agent
+            </Button>
+            <Button
               variant={activeTab === 'settings' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('settings')}
-              className={`rounded-b-none ${activeTab === 'settings' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+              className={`!rounded-b-none !rounded-t-[2px] ${activeTab === 'settings' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               Settings
             </Button>
             <Button
               variant={activeTab === 'transactions' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('transactions')}
-              className={`rounded-b-none ${activeTab === 'transactions' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+              className={`!rounded-b-none !rounded-t-[2px] ${activeTab === 'transactions' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               Transactions
             </Button>
@@ -926,6 +1048,266 @@ function CreatorDashboardContent() {
           </div>
         )}
 
+        {activeTab === 'ai-avatar' && (
+          <div className="space-y-6">
+            {/* AI Avatar Customization */}
+            <Card className="bg-white border-slate-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-slate-900">
+                  <Sparkles className="w-5 h-5 text-blue-600" />
+                  AI Avatar Customization
+                </CardTitle>
+                <CardDescription className="text-slate-600">
+                  Customize how your AI avatar talks and behaves. This helps make your AI feel more like you!
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="aiTone">AI Tone</Label>
+                  <Input
+                    id="aiTone"
+                    value={tempProfile.aiTone || ''}
+                    onChange={(e) => handleProfileChange({ aiTone: e.target.value })}
+                    placeholder="e.g., friendly, professional, casual, enthusiastic"
+                  />
+                  <p className="text-xs text-muted-foreground">How should your AI sound? (e.g., "friendly and approachable", "professional and informative")</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="aiPersonality">AI Personality</Label>
+                  <Textarea
+                    id="aiPersonality"
+                    value={tempProfile.aiPersonality || ''}
+                    onChange={(e) => handleProfileChange({ aiPersonality: e.target.value })}
+                    placeholder="e.g., curious, helpful, passionate about web3"
+                    rows={2}
+                  />
+                  <p className="text-xs text-muted-foreground">Key personality traits for your AI</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="aiBackground">Additional Background</Label>
+                  <Textarea
+                    id="aiBackground"
+                    value={tempProfile.aiBackground || ''}
+                    onChange={(e) => handleProfileChange({ aiBackground: e.target.value })}
+                    placeholder="Any additional context about you, your work, or your audience that the AI should know..."
+                    rows={3}
+                  />
+                  <p className="text-xs text-muted-foreground">Extra context to help your AI understand your brand and audience better</p>
+                </div>
+
+                {/* Save Button */}
+                <div className="flex items-center gap-3 pt-4">
+                  <Button
+                    onClick={saveProfile}
+                    disabled={!hasUnsavedChanges || isSaving}
+                    className="gap-2 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Save AI Settings
+                      </>
+                    )}
+                  </Button>
+                  {showSavedMessage && (
+                    <Badge variant="secondary" className="bg-green-500/10 text-green-600 border-green-500/20">
+                      ✓ Saved to database
+                    </Badge>
+                  )}
+                  {hasUnsavedChanges && !showSavedMessage && (
+                    <span className="text-sm text-muted-foreground">You have unsaved changes</span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'voice' && (
+          <div className="space-y-6">
+            {/* Voice Agent Configuration */}
+            <Card className="bg-white border-slate-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-slate-900">
+                  <Mic className="w-5 h-5 text-blue-600" />
+                  Voice Agent (10s via ElevenLabs)
+                </CardTitle>
+                <CardDescription className="text-slate-600">
+                  Upload a short voice sample to let your AI voice read up to 10 seconds of each locked post for unlocked supporters.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Badge variant={profile.voiceCloneStatus === 'ready' ? 'default' : 'outline'}>
+                    {profile.voiceCloneStatus === 'ready' ? 'Voice ready' : 'Voice missing'}
+                  </Badge>
+                  {voicePreviewsEnabled && (
+                    <Badge variant="secondary">Enabled for paywall</Badge>
+                  )}
+                </div>
+                {profile.voiceSampleUrl && (
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Current voice sample</Label>
+                    <audio controls className="w-full" src={profile.voiceSampleUrl}>
+                      Your browser does not support audio playback.
+                    </audio>
+                  </div>
+                )}
+                <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Sample script for recordings</p>
+                      <p className="text-xs text-muted-foreground">Read this line to keep tone and pacing consistent.</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-2"
+                      onClick={copySampleScript}
+                    >
+                      <Copy className="w-3 h-3" />
+                      {voiceScriptCopied ? 'Copied!' : 'Copy text'}
+                    </Button>
+                  </div>
+                  <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                    {sampleVoiceScript}
+                  </div>
+                </div>
+                {/* Demo limitation warning */}
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    ⚠️ <strong>Demo Limitation:</strong> You can only upload your voice <strong>once</strong> due to ElevenLabs free tier restrictions.
+                    Make sure your recording is clear before uploading! To update later, contact support.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Upload new sample (max 10 MB)</Label>
+                  <Input
+                    type="file"
+                    accept="audio/*"
+                    disabled={isUploadingVoice || !!profile.elevenLabsVoiceId}
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        handleVoiceUpload(e.target.files[0]);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                  {profile.elevenLabsVoiceId && (
+                    <p className="text-xs text-amber-600">
+                      ✓ Voice already uploaded. Cannot upload again due to demo limitations.
+                    </p>
+                  )}
+                  {isUploadingVoice && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-2">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Uploading & syncing with ElevenLabs...
+                    </p>
+                  )}
+                  {voiceStatusMessage && (
+                    <p className={`text-xs ${voiceStatusMessage.includes('Demo limitation') || voiceStatusMessage.includes('Failed') || voiceStatusMessage.includes('already uploaded') ? 'text-red-600' : 'text-blue-600'}`}>
+                      {voiceStatusMessage}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-3 rounded-xl border border-dashed border-blue-200 bg-blue-50/40 p-4">
+                  <div className="flex items-center gap-2">
+                    <Mic className="w-4 h-4 text-blue-600" />
+                    <div>
+                      <p className="text-sm font-semibold text-blue-900">Record directly in browser</p>
+                      <p className="text-xs text-muted-foreground">Capture up to {MAX_VOICE_SECONDS} seconds and upload automatically.</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      size="sm"
+                      className="gap-2"
+                      disabled={isRecording || !!profile.elevenLabsVoiceId}
+                      onClick={startRecording}
+                    >
+                      <Circle className="w-3 h-3" />
+                      Start recording
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="gap-2"
+                      disabled={!isRecording}
+                      onClick={stopRecording}
+                    >
+                      <Square className="w-3 h-3" />
+                      Stop
+                    </Button>
+                    <span className="text-sm font-mono text-blue-900">
+                      {recordingDuration.toString().padStart(2, '0')}s / {MAX_VOICE_SECONDS}s
+                    </span>
+                  </div>
+                  {isRecording && (
+                    <div className="rounded-lg border border-blue-300 bg-white p-3">
+                      <canvas
+                        ref={canvasRef}
+                        width={600}
+                        height={100}
+                        className="w-full h-[100px] rounded"
+                      />
+                      <p className="text-xs text-center text-muted-foreground mt-2">
+                        🎤 Recording... speak clearly into your microphone
+                      </p>
+                    </div>
+                  )}
+                  {recordingError && (
+                    <p className="text-xs text-red-500">{recordingError}</p>
+                  )}
+                  {recordedBlob && recordedPreviewUrl && (
+                    <div className="space-y-2">
+                      <audio controls className="w-full" src={recordedPreviewUrl}>
+                        Your browser does not support audio playback.
+                      </audio>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={resetRecording}
+                        >
+                          Discard
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => handleVoiceUpload(recordedBlob, recordingDuration || undefined)}
+                          disabled={isUploadingVoice || !!profile.elevenLabsVoiceId}
+                        >
+                          Generate Agent Voice
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="voicePreviewEnabled"
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={voicePreviewsEnabled}
+                    onChange={(e) => handleProfileChange({ voicePreviewEnabled: e.target.checked })}
+                  />
+                  <Label htmlFor="voicePreviewEnabled" className="text-sm">
+                    Enable AI voice previews on locked posts
+                  </Label>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {activeTab === 'settings' && (
           <div className="space-y-6">
             {/* Profile Settings */}
@@ -968,226 +1350,7 @@ function CreatorDashboardContent() {
                     rows={3}
                   />
                 </div>
-                
-                {/* AI Customization */}
-                <div className="space-y-4 pt-4 border-t">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-blue-600" />
-                    <Label className="text-base font-semibold">AI Avatar Customization</Label>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Customize how your AI avatar talks and behaves. This helps make your AI feel more like you!
-                  </p>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="aiTone">AI Tone</Label>
-                    <Input
-                      id="aiTone"
-                      value={tempProfile.aiTone || ''}
-                      onChange={(e) => handleProfileChange({ aiTone: e.target.value })}
-                      placeholder="e.g., friendly, professional, casual, enthusiastic"
-                    />
-                    <p className="text-xs text-muted-foreground">How should your AI sound? (e.g., "friendly and approachable", "professional and informative")</p>
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="aiPersonality">AI Personality</Label>
-                    <Textarea
-                      id="aiPersonality"
-                      value={tempProfile.aiPersonality || ''}
-                      onChange={(e) => handleProfileChange({ aiPersonality: e.target.value })}
-                      placeholder="e.g., curious, helpful, passionate about web3"
-                      rows={2}
-                    />
-                    <p className="text-xs text-muted-foreground">Key personality traits for your AI</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="aiBackground">Additional Background</Label>
-                    <Textarea
-                      id="aiBackground"
-                      value={tempProfile.aiBackground || ''}
-                      onChange={(e) => handleProfileChange({ aiBackground: e.target.value })}
-                      placeholder="Any additional context about you, your work, or your audience that the AI should know..."
-                      rows={3}
-                    />
-                    <p className="text-xs text-muted-foreground">Extra context to help your AI understand your brand and audience better</p>
-                  </div>
-
-                  {/* Save Button */}
-                  <div className="flex items-center gap-3 pt-4">
-                    <Button
-                      onClick={saveProfile}
-                      disabled={!hasUnsavedChanges || isSaving}
-                      className="gap-2 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      {isSaving ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-4 h-4" />
-                          Save AI Settings
-                        </>
-                      )}
-                    </Button>
-                    {showSavedMessage && (
-                      <Badge variant="secondary" className="bg-green-500/10 text-green-600 border-green-500/20">
-                        ✓ Saved to database
-                      </Badge>
-                    )}
-                    {hasUnsavedChanges && !showSavedMessage && (
-                      <span className="text-sm text-muted-foreground">You have unsaved changes</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Voice previews */}
-                <div className="space-y-4 pt-4 border-t">
-                  <div className="flex items-center gap-2">
-                    <Mic className="w-4 h-4 text-blue-600" />
-                    <Label className="text-base font-semibold">Voice Previews (10s via ElevenLabs)</Label>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Upload a short voice sample to let your AI voice read up to 10 seconds of each locked post for unlocked supporters.
-                  </p>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Badge variant={profile.voiceCloneStatus === 'ready' ? 'default' : 'outline'}>
-                      {profile.voiceCloneStatus === 'ready' ? 'Voice ready' : 'Voice missing'}
-                    </Badge>
-                    {voicePreviewsEnabled && (
-                      <Badge variant="secondary">Enabled for paywall</Badge>
-                    )}
-                  </div>
-                  {profile.voiceSampleUrl && (
-                    <div className="space-y-2">
-                      <Label className="text-sm text-muted-foreground">Current voice sample</Label>
-                      <audio controls className="w-full" src={profile.voiceSampleUrl}>
-                        Your browser does not support audio playback.
-                      </audio>
-                    </div>
-                  )}
-                  <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">Sample script for recordings</p>
-                        <p className="text-xs text-muted-foreground">Read this line to keep tone and pacing consistent.</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-2"
-                        onClick={copySampleScript}
-                      >
-                        <Copy className="w-3 h-3" />
-                        {voiceScriptCopied ? 'Copied!' : 'Copy text'}
-                      </Button>
-                    </div>
-                    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-                      {sampleVoiceScript}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Upload new sample (max 10 MB)</Label>
-                    <Input
-                      type="file"
-                      accept="audio/*"
-                      disabled={isUploadingVoice}
-                      onChange={(e) => {
-                        if (e.target.files?.[0]) {
-                          handleVoiceUpload(e.target.files[0]);
-                          e.target.value = '';
-                        }
-                      }}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      We only play 10 seconds per post on the free ElevenLabs tier. Clear audio works best.
-                    </p>
-                    {isUploadingVoice && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-2">
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        Uploading & syncing with ElevenLabs...
-                      </p>
-                    )}
-                    {voiceStatusMessage && (
-                      <p className="text-xs text-blue-600">{voiceStatusMessage}</p>
-                    )}
-                  </div>
-                  <div className="space-y-3 rounded-xl border border-dashed border-blue-200 bg-blue-50/40 p-4">
-                    <div className="flex items-center gap-2">
-                      <Mic className="w-4 h-4 text-blue-600" />
-                      <div>
-                        <p className="text-sm font-semibold text-blue-900">Record directly in browser</p>
-                        <p className="text-xs text-muted-foreground">Capture up to {MAX_VOICE_SECONDS} seconds and upload automatically.</p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <Button
-                        size="sm"
-                        className="gap-2"
-                        disabled={isRecording}
-                        onClick={startRecording}
-                      >
-                        <Circle className="w-3 h-3" />
-                        Start recording
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="gap-2"
-                        disabled={!isRecording}
-                        onClick={stopRecording}
-                      >
-                        <Square className="w-3 h-3" />
-                        Stop
-                      </Button>
-                      <span className="text-sm font-mono text-blue-900">
-                        {recordingDuration.toString().padStart(2, '0')}s / {MAX_VOICE_SECONDS}s
-                      </span>
-                    </div>
-                    {recordingError && (
-                      <p className="text-xs text-red-500">{recordingError}</p>
-                    )}
-                    {recordedBlob && recordedPreviewUrl && (
-                      <div className="space-y-2">
-                        <audio controls className="w-full" src={recordedPreviewUrl}>
-                          Your browser does not support audio playback.
-                        </audio>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={resetRecording}
-                          >
-                            Discard
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="gap-2"
-                            onClick={() => handleVoiceUpload(recordedBlob, recordingDuration || undefined)}
-                            disabled={isUploadingVoice}
-                          >
-                            Upload recording
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      id="voicePreviewEnabled"
-                      type="checkbox"
-                      className="h-4 w-4"
-                      checked={voicePreviewsEnabled}
-                      onChange={(e) => handleProfileChange({ voicePreviewEnabled: e.target.checked })}
-                    />
-                    <Label htmlFor="voicePreviewEnabled" className="text-sm">
-                      Enable AI voice previews on locked posts
-                    </Label>
-                  </div>
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="wallet">Wallet Address</Label>
                   <div className="relative">
@@ -1396,12 +1559,3 @@ export default function CreatorDashboard() {
     </ErrorBoundary>
   );
 }
-  const copySampleScript = async () => {
-    try {
-      await navigator.clipboard.writeText(sampleVoiceScript);
-      setVoiceScriptCopied(true);
-      setTimeout(() => setVoiceScriptCopied(false), 2000);
-    } catch (error) {
-      console.error('Failed to copy sample script:', error);
-    }
-  };

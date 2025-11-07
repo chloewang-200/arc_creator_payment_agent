@@ -66,7 +66,7 @@ export default {
       });
     }
     
-    return new Response("Arc Creator Agents API", { 
+    return new Response("Bloby on Arc Agents API", { 
       status: 200,
       headers: corsHeaders,
     });

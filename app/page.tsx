@@ -1,21 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Sparkles, ArrowRight, Check, Zap, DollarSign, Wallet, TrendingUp } from 'lucide-react';
+import { Sparkles, ArrowRight, Check, Zap, DollarSign, Wallet, TrendingUp, Loader2 } from 'lucide-react';
 import { BlobAvatar } from '@/components/BlobAvatar';
 import { ForFansContent } from '@/components/ForFansContent';
 import { WalletConnectButton } from '@/components/WalletConnectButton';
 import { ChainSelector } from '@/components/ChainSelector';
 
-export default function Home() {
+function HomeContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState('creators');
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'fans') {
+      setActiveTab('fans');
+    }
+  }, [searchParams]);
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -35,7 +43,7 @@ export default function Home() {
                 <Sparkles className="w-5 h-5 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">Arc Creator</h1>
+                <h1 className="text-xl font-bold text-foreground">Bloby</h1>
                 <p className="text-xs text-muted-foreground">Creator Platform</p>
               </div>
             </div>
@@ -78,10 +86,19 @@ export default function Home() {
                 Launch your pay-per-content business in minutes, accept feeless USDC payments worldwide, and keep ownership of your audience.
                 <br/>
                 All powered by <span className="bg-blue-200/60 dark:bg-yellow-900/40 text-foreground px-1 py-0.5 font-medium">
-                  USDC on Arc
+                  USDC on <Link href="https://www.arc.network/" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">Arc</Link>
                 </span>.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+                <Button 
+                  variant="outline"
+                  size="lg" 
+                  className="text-lg px-8 py-2 h-auto border-primary text-primary hover:bg-primary/10"
+                  onClick={() => setActiveTab('fans')}
+                >
+                  Browse Creators
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
                 <Button 
                   size="lg" 
                   className="text-lg px-8 py-2 h-auto"
@@ -125,7 +142,7 @@ export default function Home() {
             </div>
 
             {/* Bloby Section */}
-            <div className="relative max-w-5xl mx-auto mb-24">
+            <div className="relative w-full mb-24">
               <div className="relative overflow-hidden rounded-3xl bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-2xl">
                 <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div>
                 <div className="relative flex flex-col md:flex-row items-center gap-8 p-8 md:p-12">
@@ -138,12 +155,12 @@ export default function Home() {
                   </div>
                   <div className="flex-1 text-center md:text-left space-y-4">
                     <div className="flex items-center justify-center md:justify-start gap-3">
-                      <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                      <h2 className="text-4xl md:text-5xl font-bold text-foreground">
                         Meet Bloby
                       </h2>
                       <Sparkles className="w-8 h-8 text-primary animate-pulse" />
                     </div>
-                    <p className="text-xl text-muted-foreground leading-relaxed max-w-2xl">
+                    <p className="text-xl text-muted-foreground leading-relaxed">
                       Your AI assistant that handles all payment transactions seamlessly. Bloby helps you manage earnings, process tips, and facilitate content unlocks—so you can focus on creating great content.
                     </p>
                     <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-4">
@@ -167,7 +184,7 @@ export default function Home() {
 
             {/* How It Works */}
             <div className="mb-24">
-              <h2 className="text-4xl md:text-5xl font-bold text-center mb-12">How Arc Creator Works</h2>
+              <h2 className="text-4xl md:text-5xl font-bold text-center mb-12">How Bloby Works</h2>
               <div className="grid md:grid-cols-3 gap-8">
                 <div className="text-center">
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
@@ -223,7 +240,7 @@ export default function Home() {
               </p>
               <Button 
                 size="lg" 
-                className="text-lg px-8 py-6 h-auto"
+                className="text-lg px-8 py-2 h-auto"
                 onClick={() => router.push('/creator/login')}
               >
                 Start Publishing
@@ -254,5 +271,20 @@ export default function Home() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    }>
+      <HomeContent />
+    </Suspense>
   );
 }

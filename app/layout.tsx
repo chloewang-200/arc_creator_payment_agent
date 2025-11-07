@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Arc Creator Platform",
+  title: "Bloby",
   description: "Creator platform with AI avatars and USDC payments",
   icons: {
     icon: [

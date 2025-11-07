@@ -18,7 +18,7 @@ import { SubscriptionBadge } from '@/components/SubscriptionBadge';
 import { UnlockAnimation } from '@/components/UnlockAnimation';
 import { PaymentFlowInfo } from '@/components/PaymentFlowInfo';
 import { CheckoutModal } from '@/components/CheckoutModal';
-import { ArrowLeft, Users, Wallet, FileText, Headphones, Video, Heart, Crown, Sparkles, Loader2 } from 'lucide-react';
+import { ArrowLeft, Users, Wallet, FileText, Headphones, Video, Heart, Crown, Sparkles, Loader2, Volume2, Pause } from 'lucide-react';
 import type { Creator, Post, SitePricing, PaymentIntent } from '@/types';
 
 function CreatorPageContent() {
@@ -36,6 +36,12 @@ function CreatorPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [selectedIntent, setSelectedIntent] = useState<PaymentIntent | null>(null);
   const [showBlobbyTooltip, setShowBlobbyTooltip] = useState(false);
+  const [audioState, setAudioState] = useState<Record<string, {
+    isGenerating: boolean;
+    isPlaying: boolean;
+    audioUrl: string | null;
+    audioElement: HTMLAudioElement | null;
+  }>>({});
 
   useEffect(() => {
     const loadCreatorAndPosts = async () => {
@@ -214,6 +220,95 @@ function CreatorPageContent() {
     handleUnlock();
   };
 
+  const handleListen = async (postId: string, postContent: string, postIntro: string) => {
+    if (!address) return;
+
+    const state = audioState[postId] || { isGenerating: false, isPlaying: false, audioUrl: null, audioElement: null };
+
+    // If audio already playing, pause it
+    if (state.isPlaying && state.audioElement) {
+      state.audioElement.pause();
+      setAudioState({
+        ...audioState,
+        [postId]: { ...state, isPlaying: false },
+      });
+      return;
+    }
+
+    // If we already have audio, play it
+    if (state.audioUrl && state.audioElement) {
+      state.audioElement.play();
+      setAudioState({
+        ...audioState,
+        [postId]: { ...state, isPlaying: true },
+      });
+      return;
+    }
+
+    // Generate new audio
+    setAudioState({
+      ...audioState,
+      [postId]: { ...state, isGenerating: true },
+    });
+
+    try {
+      const response = await fetch(
+        `/api/posts/${postId}/audio?walletAddress=${address}`
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        alert(data.error || 'Failed to generate audio');
+        return;
+      }
+
+      // Create blob URL from response
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+
+      // Create audio element
+      const audio = new Audio(url);
+      audio.addEventListener('ended', () => {
+        setAudioState(prev => ({
+          ...prev,
+          [postId]: { ...prev[postId], isPlaying: false },
+        }));
+      });
+      audio.addEventListener('pause', () => {
+        setAudioState(prev => ({
+          ...prev,
+          [postId]: { ...prev[postId], isPlaying: false },
+        }));
+      });
+      audio.addEventListener('play', () => {
+        setAudioState(prev => ({
+          ...prev,
+          [postId]: { ...prev[postId], isPlaying: true },
+        }));
+      });
+
+      // Play audio
+      await audio.play();
+
+      setAudioState({
+        ...audioState,
+        [postId]: {
+          isGenerating: false,
+          isPlaying: true,
+          audioUrl: url,
+          audioElement: audio,
+        },
+      });
+    } catch (error) {
+      console.error('Error generating audio:', error);
+      alert('Failed to generate audio. Please try again.');
+      setAudioState({
+        ...audioState,
+        [postId]: { ...state, isGenerating: false },
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       {/* Soft pastel background elements */}
@@ -228,7 +323,7 @@ function CreatorPageContent() {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         <Button variant="ghost" asChild className="mb-6">
-          <Link href="/">
+          <Link href="/?tab=fans">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to creators
           </Link>
@@ -432,6 +527,43 @@ function CreatorPageContent() {
                         {unlocked ? (
                           <UnlockAnimation>
                             <div className="prose prose-slate max-w-none">
+                              {/* Listen Button */}
+                              <div className="not-prose mb-6">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <Button
+                                    onClick={() => handleListen(post.id, post.body, post.intro)}
+                                    disabled={audioState[post.id]?.isGenerating}
+                                    variant="outline"
+                                    className="gap-2"
+                                  >
+                                    {audioState[post.id]?.isGenerating ? (
+                                      <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Generating audio...
+                                      </>
+                                    ) : audioState[post.id]?.isPlaying ? (
+                                      <>
+                                        <Pause className="w-4 h-4" />
+                                        Pause
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Volume2 className="w-4 h-4" />
+                                        Listen to this post
+                                      </>
+                                    )}
+                                  </Button>
+                                  {audioState[post.id]?.audioUrl && !audioState[post.id]?.isGenerating && (
+                                    <span className="text-sm text-muted-foreground">
+                                      {creator.name}'s voice
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-amber-600">
+                                  ⚠️ Demo limitation: Only first ~5 seconds as using ElevenLabs starter tier. Thanks for not spamming! :)
+                                </p>
+                              </div>
+
                               {post.voicePreviewUrl && (
                                 <div className="mb-4 rounded-xl border border-primary/40 bg-primary/5 p-4">
                                   <div className="flex items-center gap-2 text-sm font-semibold text-primary">

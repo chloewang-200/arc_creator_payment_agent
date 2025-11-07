@@ -16,7 +16,7 @@ function question(prompt) {
 }
 
 async function setupEnv() {
-  console.log('🔧 Arc Creator Platform - Environment Setup\n');
+  console.log('🔧 Bloby on Arc - Environment Setup\n');
 
   const envPath = path.join(process.cwd(), '.env.local');
   
