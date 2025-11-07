@@ -21,7 +21,6 @@ const SUPPORTED_CHAINS = [
   { id: ARC_CHAIN_ID, name: 'Arc Testnet', rpc: ARC_RPC_URL },
   { id: chains.sepolia.id, name: 'Ethereum Sepolia', rpc: chains.sepolia.rpcUrls.default.http[0] },
   { id: chains.baseSepolia.id, name: 'Base Sepolia', rpc: chains.baseSepolia.rpcUrls.default.http[0] },
-  { id: chains.optimismSepolia.id, name: 'Optimism Sepolia', rpc: chains.optimismSepolia.rpcUrls.default.http[0] },
   { id: 1328, name: 'Sei Testnet', rpc: 'https://evm-rpc-testnet.sei-apis.com' },
 ];
 

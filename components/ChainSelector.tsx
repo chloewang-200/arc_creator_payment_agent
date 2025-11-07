@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useChainId, useSwitchChain } from 'wagmi';
 import { supportedChains } from '@/lib/wagmi-config';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,11 @@ import { Check, ChevronDown, Network } from 'lucide-react';
 export function ChainSelector() {
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const currentChain = supportedChains.find((c) => c.id === chainId);
 
@@ -25,7 +31,7 @@ export function ChainSelector() {
         <Button variant="outline" className="gap-2">
           <Network className="w-4 h-4" />
           <span className="hidden sm:inline">
-            {currentChain?.name || 'Select Chain'}
+            {mounted ? (currentChain?.name || 'Select Chain') : 'Select Chain'}
           </span>
           <ChevronDown className="w-4 h-4" />
         </Button>

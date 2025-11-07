@@ -10,6 +10,8 @@ import { PlatformEarnings } from '@/components/PlatformEarnings';
 import { ConsolidateBalance } from '@/components/ConsolidateBalance';
 import { CreatorAuthGuard } from '@/components/CreatorAuthGuard';
 import { TransactionLog } from '@/components/TransactionLog';
+import { PendingRefunds } from '@/components/PendingRefunds';
+import { RefundWalletSetup } from '@/components/RefundWalletSetup';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuth } from '@/lib/auth-context';
 import { WalletConnectButton } from '@/components/WalletConnectButton';
@@ -41,6 +43,7 @@ function CreatorDashboardContent() {
     walletAddress: undefined,
     hasContent: true,
     avatar: '/images/avatars/creator1.jpg',
+    refundWalletAddress: undefined,
   });
   const [editingPost, setEditingPost] = useState<string | null>(null);
   const [newPost, setNewPost] = useState<Partial<Post>>({
@@ -84,7 +87,13 @@ function CreatorDashboardContent() {
             setProfile(data.creator);
             setTempProfile(data.creator);
             if (data.pricing) {
-              setPricing(data.pricing);
+              setPricing({
+                ...defaultPricing,
+                ...data.pricing,
+                refundConversationThreshold: data.pricing.refundConversationThreshold ?? 3,
+                refundAutoThresholdUSD: data.pricing.refundAutoThresholdUSD ?? 1.00,
+                refundContactEmail: data.pricing.refundContactEmail ?? null,
+              });
             }
           }
         }
@@ -248,7 +257,7 @@ function CreatorDashboardContent() {
   if (authLoading || isLoadingProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
       </div>
     );
   }
@@ -259,9 +268,15 @@ function CreatorDashboardContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
+      {/* Professional subtle background pattern */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-30">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-100/20 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-slate-100/20 rounded-full blur-3xl"></div>
+      </div>
+
       {/* Header */}
-      <header className="border-b border-border/40 bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+      <header className="border-b border-slate-200 bg-white/90 backdrop-blur-sm sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
@@ -273,17 +288,17 @@ function CreatorDashboardContent() {
               </Button>
               <Separator orientation="vertical" className="h-6" />
               <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10">
+                <Avatar className="h-10 w-10 border-2 border-blue-100">
                   {profile.avatar && (
                     <AvatarImage src={profile.avatar} alt={profile.name} />
                   )}
-                  <AvatarFallback>
+                  <AvatarFallback className="bg-blue-50 text-blue-700 font-semibold">
                     {profile.name?.split(' ').map(n => n[0]).join('') || 'C'}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <div className="text-sm font-semibold">{profile.name || 'Creator'}</div>
-                  <div className="text-xs text-muted-foreground">@{profile.username}</div>
+                  <div className="text-sm font-semibold text-slate-900">{profile.name || 'Creator'}</div>
+                  <div className="text-xs text-slate-500">@{profile.username}</div>
                 </div>
               </div>
             </div>
@@ -295,50 +310,60 @@ function CreatorDashboardContent() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
+        {/* Professional blue accent bar */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600"></div>
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card>
+          <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Earnings</p>
-                  <p className="text-2xl font-bold">${totalEarnings.toLocaleString()}</p>
+                  <p className="text-sm text-slate-600 font-medium">Total Earnings</p>
+                  <p className="text-2xl font-bold text-slate-900">${totalEarnings.toLocaleString()}</p>
                 </div>
-                <TrendingUp className="w-8 h-8 text-green-500 opacity-50" />
+                <div className="p-2 bg-green-50 rounded-lg">
+                  <TrendingUp className="w-6 h-6 text-green-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Followers</p>
-                  <p className="text-2xl font-bold">{totalFollowers.toLocaleString()}</p>
+                  <p className="text-sm text-slate-600 font-medium">Followers</p>
+                  <p className="text-2xl font-bold text-slate-900">{totalFollowers.toLocaleString()}</p>
                 </div>
-                <Users className="w-8 h-8 text-blue-500 opacity-50" />
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <Users className="w-6 h-6 text-blue-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Posts</p>
-                  <p className="text-2xl font-bold">{totalPosts}</p>
+                  <p className="text-sm text-slate-600 font-medium">Total Posts</p>
+                  <p className="text-2xl font-bold text-slate-900">{totalPosts}</p>
                 </div>
-                <FileText className="w-8 h-8 text-purple-500 opacity-50" />
+                <div className="p-2 bg-slate-50 rounded-lg">
+                  <FileText className="w-6 h-6 text-slate-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">This Month</p>
-                  <p className="text-2xl font-bold">${(totalEarnings * 0.15).toFixed(0)}</p>
+                  <p className="text-sm text-slate-600 font-medium">This Month</p>
+                  <p className="text-2xl font-bold text-slate-900">${(totalEarnings * 0.15).toFixed(0)}</p>
                 </div>
-                <BarChart3 className="w-8 h-8 text-orange-500 opacity-50" />
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <BarChart3 className="w-6 h-6 text-blue-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -346,13 +371,13 @@ function CreatorDashboardContent() {
 
         {/* Wallet Connection for Consolidation */}
         {profile.walletAddress && (
-          <Card className="mb-6">
+          <Card className="mb-6 bg-white border-slate-200 shadow-sm">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wallet className="w-5 h-5" />
+              <CardTitle className="flex items-center gap-2 text-slate-900">
+                <Wallet className="w-5 h-5 text-blue-600" />
                 Connect Wallet for Consolidation
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-slate-600">
                 Connect your creator wallet ({profile.walletAddress.slice(0, 6)}...{profile.walletAddress.slice(-4)}) to consolidate balances from all chains to Arc Network.
               </CardDescription>
             </CardHeader>
@@ -408,32 +433,32 @@ function CreatorDashboardContent() {
 
         {/* Tabs */}
         <div className="mb-6">
-          <div className="flex gap-2 border-b border-border">
+          <div className="flex gap-2 border-b border-slate-200">
             <Button
               variant={activeTab === 'overview' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('overview')}
-              className="rounded-b-none"
+              className={`rounded-b-none ${activeTab === 'overview' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               Overview
             </Button>
             <Button
               variant={activeTab === 'content' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('content')}
-              className="rounded-b-none"
+              className={`rounded-b-none ${activeTab === 'content' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               Content
             </Button>
             <Button
               variant={activeTab === 'settings' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('settings')}
-              className="rounded-b-none"
+              className={`rounded-b-none ${activeTab === 'settings' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               Settings
             </Button>
             <Button
               variant={activeTab === 'transactions' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('transactions')}
-              className="rounded-b-none"
+              className={`rounded-b-none ${activeTab === 'transactions' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               Transactions
             </Button>
@@ -443,22 +468,22 @@ function CreatorDashboardContent() {
         {/* Tab Content */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            <Card>
+            <Card className="bg-white border-slate-200 shadow-sm">
               <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>Common tasks for managing your creator profile</CardDescription>
+                <CardTitle className="text-slate-900">Quick Actions</CardTitle>
+                <CardDescription className="text-slate-600">Common tasks for managing your creator profile</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Button variant="outline" className="h-auto py-4 flex-col gap-2" onClick={() => setActiveTab('content')}>
+                  <Button variant="outline" className="h-auto py-4 flex-col gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300" onClick={() => setActiveTab('content')}>
                     <Plus className="w-6 h-6" />
                     <span>Create New Post</span>
                   </Button>
-                  <Button variant="outline" className="h-auto py-4 flex-col gap-2" onClick={() => setActiveTab('settings')}>
+                  <Button variant="outline" className="h-auto py-4 flex-col gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300" onClick={() => setActiveTab('settings')}>
                     <Settings className="w-6 h-6" />
                     <span>Update Settings</span>
                   </Button>
-                  <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
+                  <Button variant="outline" className="h-auto py-4 flex-col gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300" asChild>
                     <Link href={`/creator/${profile.username || 'my-creator'}`} target="_blank">
                       <ExternalLink className="w-6 h-6" />
                       <span>View Profile</span>
@@ -473,13 +498,13 @@ function CreatorDashboardContent() {
         {activeTab === 'content' && (
           <div className="space-y-6">
             {/* Create New Post */}
-            <Card>
+            <Card className="bg-white border-slate-200 shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="w-5 h-5" />
+                <CardTitle className="flex items-center gap-2 text-slate-900">
+                  <Plus className="w-5 h-5 text-blue-600" />
                   Create New Post
                 </CardTitle>
-                <CardDescription>Add a new premium post to your collection</CardDescription>
+                <CardDescription className="text-slate-600">Add a new premium post to your collection</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -545,7 +570,7 @@ function CreatorDashboardContent() {
                       />
                     </div>
                   </div>
-                  <Button onClick={handleCreatePost} className="gap-2 mt-6">
+                  <Button onClick={handleCreatePost} className="gap-2 mt-6 bg-blue-600 text-white hover:bg-blue-700">
                     <Plus className="w-4 h-4" />
                     Create {newPost.contentType || 'Post'}
                   </Button>
@@ -554,10 +579,10 @@ function CreatorDashboardContent() {
             </Card>
 
             {/* Existing Posts */}
-            <Card>
+            <Card className="bg-white border-slate-200 shadow-sm">
               <CardHeader>
-                <CardTitle>Your Posts</CardTitle>
-                <CardDescription>Manage your published content</CardDescription>
+                <CardTitle className="text-slate-900">Your Posts</CardTitle>
+                <CardDescription className="text-slate-600">Manage your published content</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -568,7 +593,7 @@ function CreatorDashboardContent() {
                     </div>
                   ) : (
                     postsList.map((post) => (
-                      <Card key={post.id} className="border-border/50">
+                      <Card key={post.id} className="bg-slate-50 border-slate-200">
                         <CardContent className="p-6">
                           <div className="flex justify-between items-start gap-4">
                             <div className="flex-1">
@@ -642,13 +667,13 @@ function CreatorDashboardContent() {
         {activeTab === 'settings' && (
           <div className="space-y-6">
             {/* Profile Settings */}
-            <Card>
+            <Card className="bg-white border-slate-200 shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="w-5 h-5" />
+                <CardTitle className="flex items-center gap-2 text-slate-900">
+                  <User className="w-5 h-5 text-blue-600" />
                   Profile Settings
                 </CardTitle>
-                <CardDescription>Manage your public profile information</CardDescription>
+                <CardDescription className="text-slate-600">Manage your public profile information</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -685,7 +710,7 @@ function CreatorDashboardContent() {
                 {/* AI Customization */}
                 <div className="space-y-4 pt-4 border-t">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-primary" />
+                    <Sparkles className="w-4 h-4 text-blue-600" />
                     <Label className="text-base font-semibold">AI Avatar Customization</Label>
                   </div>
                   <p className="text-sm text-muted-foreground">
@@ -732,7 +757,7 @@ function CreatorDashboardContent() {
                     <Button
                       onClick={saveProfile}
                       disabled={!hasUnsavedChanges || isSaving}
-                      className="gap-2"
+                      className="gap-2 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
                     >
                       {isSaving ? (
                         <>
@@ -778,15 +803,15 @@ function CreatorDashboardContent() {
             </Card>
 
             {/* Pricing Settings */}
-            <Card>
+            <Card className="bg-white border-slate-200 shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="w-5 h-5" />
+                <CardTitle className="flex items-center gap-2 text-slate-900">
+                  <CreditCard className="w-5 h-5 text-blue-600" />
                   Pricing Settings
                 </CardTitle>
-                <CardDescription>Configure your subscription and tip settings</CardDescription>
+                <CardDescription className="text-slate-600">Configure your subscription and tip settings</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="monthly">Monthly Subscription (USDC)</Label>
@@ -849,16 +874,107 @@ function CreatorDashboardContent() {
                     />
                   </div>
                 </div>
+
+                {/* Refund Settings */}
+                <Separator />
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-blue-600" />
+                    <Label className="text-base font-semibold">Refund Settings</Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Configure how refunds are handled. Users must meet conversation threshold before requesting refunds.
+                  </p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="refundThreshold">Conversation Threshold</Label>
+                      <Input
+                        id="refundThreshold"
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={pricing.refundConversationThreshold ?? 3}
+                        onChange={(e) =>
+                          savePricing({ 
+                            ...pricing, 
+                            refundConversationThreshold: parseInt(e.target.value) || 3
+                          })
+                        }
+                        placeholder="3"
+                      />
+                      <p className="text-xs text-muted-foreground">Minimum conversations before refund eligibility</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="refundAutoThreshold">Auto-Refund Threshold (USDC)</Label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                        <Input
+                          id="refundAutoThreshold"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={pricing.refundAutoThresholdUSD ?? 1.00}
+                          onChange={(e) =>
+                            savePricing({ 
+                              ...pricing, 
+                              refundAutoThresholdUSD: parseFloat(e.target.value) || 1.00
+                            })
+                          }
+                          className="pl-9"
+                          placeholder="1.00"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">Amount under which refunds are auto-processed</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="refundEmail">Refund Contact Email</Label>
+                      <Input
+                        id="refundEmail"
+                        type="email"
+                        value={pricing.refundContactEmail || ''}
+                        onChange={(e) =>
+                          savePricing({ 
+                            ...pricing, 
+                            refundContactEmail: e.target.value || null
+                          })
+                        }
+                        placeholder="refunds@example.com"
+                      />
+                      <p className="text-xs text-muted-foreground">For refunds above threshold (optional)</p>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
         )}
 
         {activeTab === 'transactions' && (
-          <TransactionLog 
-            creatorId={profile.id} 
-            walletAddress={profile.walletAddress}
-          />
+          <div className="space-y-6">
+            {/* Automated Refund Wallet Setup */}
+            {profile.id && profile.walletAddress && (
+              <RefundWalletSetup
+                creatorId={profile.id}
+                creatorWallet={profile.walletAddress as `0x${string}`}
+                refundWalletAddress={profile.refundWalletAddress as `0x${string}` | undefined}
+              />
+            )}
+
+            {/* Manual Pending Refunds */}
+            {profile.id && profile.walletAddress && (
+              <PendingRefunds
+                creatorId={profile.id}
+                creatorWallet={profile.walletAddress as `0x${string}`}
+              />
+            )}
+
+            {/* Transaction History */}
+            <TransactionLog
+              creatorId={profile.id}
+              walletAddress={profile.walletAddress}
+            />
+          </div>
         )}
       </div>
     </div>

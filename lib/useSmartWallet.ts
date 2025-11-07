@@ -5,7 +5,9 @@
 import { useState, useCallback } from 'react';
 import { useAccount, usePublicClient, useWalletClient, useChainId } from 'wagmi';
 import { encodePacked, encodeFunctionData, concat, type Address, type Hex } from 'viem';
-import { toCircleSmartAccount } from '@circle-fin/modular-wallets-core';
+// import { toCircleSmartAccount } from '@circle-fin/modular-wallets-core';
+// Note: This package is not installed. The useSmartWallet hook is not currently being used.
+// If needed in the future, install: npm install @circle-fin/modular-wallets-core
 import { signPermit } from './permit';
 import { getPaymasterAddress, isPaymasterAvailable, DEFAULT_PERMIT_AMOUNT, getBundlerEndpoint, getFactoryAddress, ENTRYPOINT_V07_ADDRESS } from './paymaster-config';
 import { getGatewayUSDCAddress } from './gateway';
@@ -84,7 +86,7 @@ export function useSmartWallet() {
 
     try {
       // Use salt = 0 for the first smart account
-      const salt = 0n;
+      const salt = BigInt(0);
 
       const address = await publicClient.readContract({
         address: factoryAddress,
@@ -137,7 +139,7 @@ export function useSmartWallet() {
       }
 
       // Generate factory call data
-      const salt = 0n;
+      const salt = BigInt(0);
       const callData = encodeFunctionData({
         abi: FACTORY_ABI,
         functionName: 'createAccount',
@@ -166,10 +168,14 @@ export function useSmartWallet() {
     try {
       // Create a smart account adapter that uses the connected wallet
       // The walletClient will handle signing via MetaMask/wallet prompts
-      const account = await toCircleSmartAccount({
-        client: publicClient,
-        owner: walletClient.account, // Uses connected wallet, not private key
-      });
+      // TODO: Install @circle-fin/modular-wallets-core if smart wallets are needed
+      // const account = await toCircleSmartAccount({
+      //   client: publicClient,
+      //   owner: walletClient.account, // Uses connected wallet, not private key
+      // });
+      
+      // For now, return null as this hook is not being used
+      const account = null;
 
       // Get the smart account address
       const smartAccountAddress = await getSmartAccountAddress();
@@ -207,7 +213,7 @@ export function useSmartWallet() {
       const permitSignature = await signPermit({
         tokenAddress: usdcAddress,
         client: publicClient,
-        account: walletClient.account, // Uses walletClient, not private key
+        ownerAddress: walletClient.account.address, // Uses walletClient address, not private key
         spenderAddress: paymasterAddress,
         permitAmount: DEFAULT_PERMIT_AMOUNT,
         walletClient, // Pass walletClient for signing
@@ -221,8 +227,8 @@ export function useSmartWallet() {
       return {
         paymaster: paymasterAddress,
         paymasterData,
-        paymasterVerificationGasLimit: 200000n,
-        paymasterPostOpGasLimit: 15000n,
+        paymasterVerificationGasLimit: BigInt(200000),
+        paymasterPostOpGasLimit: BigInt(15000),
         isFinal: true,
       } as PaymasterData;
     } catch (error) {

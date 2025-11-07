@@ -24,7 +24,7 @@ export const creators: Creator[] = [
     name: 'Sarah Designer',
     username: 'sarah-designer',
     avatar: '/images/avatars/creator2.jpg',
-    bio: 'Digital artist and NFT creator. Tips welcome! 🎨',
+    bio: 'I am a digital artist and NFT creator. Really appreciate your support in helping me create more content! 🎨',
     pricing: {
       monthlyUSD: 0,
       tipPresetsUSD: [5, 10, 25, 50],

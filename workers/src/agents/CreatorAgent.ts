@@ -29,7 +29,7 @@ export class CreatorAgent {
 
     if (request.method === 'POST') {
       try {
-        const data = await request.json();
+        const data = await request.json() as any;
 
               if (data.type === 'init') {
                 // Log what we received
@@ -74,10 +74,28 @@ export class CreatorAgent {
         }
 
         if (data.type === 'chat' || data.message) {
-          const conversationHistory = (await this.state.storage.get('conversationHistory')) || [];
-          conversationHistory.push({ role: 'user', content: data.message || data.text });
+          const conversationHistory = (await this.state.storage.get('conversationHistory') as any[]) || [];
+          const userMessage = data.message || data.text;
+          const userWallet = data.userWalletAddress; // Get user wallet from request
+          
+          conversationHistory.push({ role: 'user', content: userMessage });
 
-          const response = await this.handleChat(conversationHistory);
+          // Track refund intent attempts
+          if (userWallet) {
+            const refundIntentAttempts = (await this.state.storage.get('refundIntentAttempts') as Record<string, number>) || {};
+            const refundKeywords = ['refund', 'return', 'money back', 'get my money back', 'want my money back'];
+            const messageLower = userMessage.toLowerCase();
+            const hasRefundIntent = refundKeywords.some(keyword => messageLower.includes(keyword));
+            
+            if (hasRefundIntent) {
+              const walletKey = userWallet.toLowerCase();
+              const currentAttempts = refundIntentAttempts[walletKey] || 0;
+              refundIntentAttempts[walletKey] = currentAttempts + 1;
+              await this.state.storage.put('refundIntentAttempts', refundIntentAttempts);
+            }
+          }
+
+          const response = await this.handleChat(conversationHistory, data.userWalletAddress);
           await this.state.storage.put('conversationHistory', conversationHistory);
 
           const newHeaders = new Headers(response.headers);
@@ -99,12 +117,12 @@ export class CreatorAgent {
     return new Response('Method not allowed', { status: 405, headers: corsHeaders });
   }
 
-  async handleChat(conversationHistory: any[]): Promise<Response> {
+  async handleChat(conversationHistory: any[], userWallet?: string): Promise<Response> {
     if (!this.env.AI) {
       return new Response("AI not configured", { status: 500 });
     }
 
-    const systemPrompt = await this.buildSystemPrompt();
+    const systemPrompt = await this.buildSystemPrompt(userWallet);
 
     try {
       const response = await this.env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
@@ -177,7 +195,7 @@ export class CreatorAgent {
     }
   }
 
-  async buildSystemPrompt(): Promise<string> {
+  async buildSystemPrompt(userWallet?: string): Promise<string> {
     const creatorName = await this.state.storage.get('creatorName') as string || 'Creator';
     const creatorBio = await this.state.storage.get('creatorBio') as string;
     const aiTone = await this.state.storage.get('aiTone') as string;
@@ -186,6 +204,13 @@ export class CreatorAgent {
     const pricing = await this.state.storage.get('pricing') as any;
     const posts = await this.state.storage.get('posts') as any[];
     const hasContent = await this.state.storage.get('hasContent') as boolean;
+    
+    // Get refund intent attempts for this user
+    const refundIntentAttempts = (await this.state.storage.get('refundIntentAttempts') as Record<string, number>) || {};
+    const currentAttempts = userWallet ? (refundIntentAttempts[userWallet.toLowerCase()] || 0) : 0;
+    const refundThreshold = pricing?.refundConversationThreshold || 3;
+    const refundAutoThreshold = pricing?.refundAutoThresholdUSD || 1.00;
+    const refundEmail = pricing?.refundContactEmail;
 
     // Log what we loaded for the system prompt
     console.log('🟢 Building system prompt with:', {
@@ -304,6 +329,41 @@ export class CreatorAgent {
       prompt += '- NEVER make up prices or content that doesn\'t exist\n';
     }
     prompt += '- If asked about unrelated topics, politely redirect back to payments/support\n';
+    
+    // Add refund handling instructions
+    prompt += '\n=== REFUND POLICY ===\n';
+    prompt += 'IMPORTANT: Only purchases (unlocks and subscriptions) can be refunded. Tips CANNOT be refunded.\n';
+    prompt += 'If user requests refund for a tip, politely explain: "I\'m sorry, but tips are non-refundable as they are voluntary contributions to support the creator. However, I can help you with refunds for purchased content (unlocks or subscriptions) if you\'re not satisfied."\n';
+    prompt += 'When a user requests a refund for a purchase (unlock or subscription), try to prevent it (be helpful, offer alternatives, ask what went wrong).\n';
+    prompt += 'You have ' + refundThreshold + ' attempts to try to prevent the refund.\n';
+    prompt += 'Current refund attempt count for this user: ' + currentAttempts + ' out of ' + refundThreshold + '\n';
+    
+    if (currentAttempts < refundThreshold) {
+      prompt += 'Since this is attempt ' + (currentAttempts + 1) + ' (below threshold of ' + refundThreshold + '), try to prevent the refund:\n';
+      prompt += '- Ask what went wrong\n';
+      prompt += '- Offer to help fix the issue\n';
+      prompt += '- Be empathetic and understanding\n';
+      prompt += '- Suggest alternatives if possible\n';
+      prompt += 'Example prevention responses:\n';
+      prompt += '- "I\'m sorry to hear you\'re not satisfied. What went wrong? Maybe I can help fix the issue instead of refunding."\n';
+      prompt += '- "Before we process a refund, could you tell me what didn\'t meet your expectations? We\'d love to make it right."\n';
+      prompt += '- "I understand your concern. Is there something specific we could improve? We value your feedback."\n';
+    } else {
+      prompt += 'Since this is attempt ' + currentAttempts + ' (at or above threshold of ' + refundThreshold + '), process the refund:\n';
+      prompt += '- Acknowledge their request\n';
+      prompt += '- Ask for transaction details (transactionId, refundType must be "unlock" or "subscription", amountUSD, chainId)\n';
+      prompt += '- IMPORTANT: refundType must be "unlock" or "subscription", NOT "tip" or "recurringTip"\n';
+      prompt += '- If amount is under $' + refundAutoThreshold.toFixed(2) + ', output: {"type": "refund_request", "transactionId": "...", "refundType": "unlock|subscription", "amountUSD": X, "chainId": Y}\n';
+      if (refundEmail) {
+        prompt += '- If amount is above $' + refundAutoThreshold.toFixed(2) + ', direct them to contact ' + refundEmail + '\n';
+      } else {
+        prompt += '- If amount is above $' + refundAutoThreshold.toFixed(2) + ', explain that refunds above this amount require contacting the creator directly\n';
+      }
+    }
+    prompt += '- Refunds include a 2% processing fee\n';
+    prompt += '- If a user asks about their refund status, you can mention that refunds require creator approval and may take some time\n';
+    prompt += '- If a refund was rejected, you can say: "It seems like your refund request was rejected. You can contact the creator directly if you have questions about this decision."\n';
+    
     return prompt;
   }
 }

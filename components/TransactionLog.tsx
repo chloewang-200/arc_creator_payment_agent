@@ -86,7 +86,7 @@ export function TransactionLog({ creatorId, walletAddress }: TransactionLogProps
   const getTransactionTypeColor = (type: string) => {
     switch (type) {
       case 'unlock':
-        return 'default';
+        return 'blue';
       case 'subscription':
         return 'secondary';
       case 'recurringTip':
@@ -168,7 +168,10 @@ export function TransactionLog({ creatorId, walletAddress }: TransactionLogProps
             >
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <Badge variant={getTransactionTypeColor(tx.type) as any}>
+                  <Badge 
+                    variant={getTransactionTypeColor(tx.type) === 'blue' ? 'default' : getTransactionTypeColor(tx.type) as any}
+                    className={getTransactionTypeColor(tx.type) === 'blue' ? 'bg-blue-600 text-white border-0' : ''}
+                  >
                     {getTransactionTypeLabel(tx.type)}
                   </Badge>
                   {tx.amount !== undefined && tx.amount > 0 && (

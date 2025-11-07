@@ -21,7 +21,10 @@ export async function GET(request: NextRequest) {
       creator_pricing (
         monthly_usd,
         tip_presets_usd,
-        recurring_tip_usd
+        recurring_tip_usd,
+        refund_conversation_threshold,
+        refund_auto_threshold_usd,
+        refund_contact_email
       )
     `);
 
@@ -50,6 +53,8 @@ export async function GET(request: NextRequest) {
       name: data.name,
       username: data.username,
       walletAddress: data.wallet_address,
+      refundWalletAddress: data.refund_wallet_address,
+      refundWalletChainId: data.refund_wallet_chain_id,
       bio: data.bio,
       avatar: data.avatar_url,
       coverImage: data.cover_image_url,
@@ -67,10 +72,16 @@ export async function GET(request: NextRequest) {
       monthlyUSD: data.creator_pricing[0].monthly_usd ?? null, // Use null instead of 0 for empty values
       tipPresetsUSD: data.creator_pricing[0].tip_presets_usd || [1, 2, 5],
       recurringTipUSD: data.creator_pricing[0].recurring_tip_usd ?? null,
+      refundConversationThreshold: data.creator_pricing[0].refund_conversation_threshold ?? 3,
+      refundAutoThresholdUSD: data.creator_pricing[0].refund_auto_threshold_usd ?? 1.00,
+      refundContactEmail: data.creator_pricing[0].refund_contact_email ?? null,
     } : {
       monthlyUSD: null,
       tipPresetsUSD: [1, 2, 5],
       recurringTipUSD: 10,
+      refundConversationThreshold: 3,
+      refundAutoThresholdUSD: 1.00,
+      refundContactEmail: null,
     };
 
     return NextResponse.json({ creator, pricing });
@@ -89,6 +100,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const {
       email,
+      creatorId,
       walletAddress,
       username,
       name,
@@ -99,11 +111,50 @@ export async function PUT(request: NextRequest) {
       aiPersonality,
       aiBackground,
       pricing,
+      refundWalletAddress,
+      refundWalletChainId,
     } = body;
+
+    // Support updating by creatorId OR email+username+name
+    if (creatorId) {
+      // Update existing creator by ID (for refund wallet address updates)
+      const updateData: any = {};
+      if (refundWalletAddress !== undefined) updateData.refund_wallet_address = refundWalletAddress;
+      if (refundWalletChainId !== undefined) updateData.refund_wallet_chain_id = refundWalletChainId;
+      if (walletAddress !== undefined) updateData.wallet_address = walletAddress;
+      if (username !== undefined) updateData.username = username;
+      if (name !== undefined) updateData.name = name;
+      if (bio !== undefined) updateData.bio = bio;
+      if (avatar !== undefined) updateData.avatar_url = avatar;
+      if (coverImage !== undefined) updateData.cover_image_url = coverImage;
+      if (aiTone !== undefined) updateData.ai_tone = aiTone;
+      if (aiPersonality !== undefined) updateData.ai_personality = aiPersonality;
+      if (aiBackground !== undefined) updateData.ai_background = aiBackground;
+
+      const { data: creator, error: creatorError } = await supabase
+        .from('creators')
+        .update(updateData)
+        .eq('id', creatorId)
+        .select()
+        .single();
+
+      if (creatorError) throw creatorError;
+
+      return NextResponse.json({
+        success: true,
+        creator: {
+          id: creator.id,
+          walletAddress: creator.wallet_address,
+          refundWalletAddress: creator.refund_wallet_address,
+          username: creator.username,
+          name: creator.name,
+        },
+      });
+    }
 
     if (!email || !username || !name) {
       return NextResponse.json(
-        { error: 'email, username, and name are required' },
+        { error: 'email, username, and name are required (or creatorId for updates)' },
         { status: 400 }
       );
     }
@@ -122,6 +173,8 @@ export async function PUT(request: NextRequest) {
         ai_tone: aiTone,
         ai_personality: aiPersonality,
         ai_background: aiBackground,
+        refund_wallet_address: refundWalletAddress,
+        refund_wallet_chain_id: refundWalletChainId,
       }, {
         onConflict: 'email',
       })
@@ -139,6 +192,9 @@ export async function PUT(request: NextRequest) {
           monthly_usd: pricing.monthlyUSD ?? null, // Use null instead of default 5
           tip_presets_usd: pricing.tipPresetsUSD || [1, 2, 5],
           recurring_tip_usd: pricing.recurringTipUSD ?? null,
+          refund_conversation_threshold: pricing.refundConversationThreshold ?? 3,
+          refund_auto_threshold_usd: pricing.refundAutoThresholdUSD ?? 1.00,
+          refund_contact_email: pricing.refundContactEmail ?? null,
         }, {
           onConflict: 'creator_id',
         });

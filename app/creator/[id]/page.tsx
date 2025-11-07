@@ -210,8 +210,18 @@ export default function CreatorPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Soft pastel background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Yellow - top right (large, prominent) */}
+        <div className="absolute -top-32 -right-32 w-[800px] h-[800px] pastel-yellow rounded-full blur-3xl animate-float" style={{ animationDelay: '0s' }}></div>
+        {/* Blue - middle left (large, prominent) */}
+        <div className="absolute top-1/3 -left-32 w-[900px] h-[900px] pastel-blue rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
+        {/* Pink - bottom right (large, prominent) */}
+        <div className="absolute -bottom-32 -right-24 w-[850px] h-[850px] pastel-pink rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }}></div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         <Button variant="ghost" asChild className="mb-6">
           <Link href="/">
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -223,20 +233,20 @@ export default function CreatorPage() {
         <PaymentFlowInfo className="mb-6" />
 
         {/* Creator Profile Header */}
-        <Card className="mb-8 border-primary/20">
+        <Card className="mb-8 gradient-card-hover border border-border/60 relative overflow-hidden">
           <CardContent className="p-8">
             <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
-              <Avatar className="h-36 w-36 border-4 border-primary/20">
+              <Avatar className="h-36 w-36 border border-border/60 shadow-sm">
                 {creator.avatar && (
                   <AvatarImage src={creator.avatar} alt={creator.name} />
                 )}
-                <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary text-2xl font-bold">
+                <AvatarFallback className="bg-muted text-foreground text-2xl font-semibold">
                   {creator.name.split(' ').map(n => n[0]).join('')}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-3xl font-bold">{creator.name}</h1>
+                <div className="flex items-center gap-3 mb-2 flex-wrap">
+                  <h1 className="text-3xl font-bold text-foreground">{creator.name}</h1>
                   {!creator.hasContent && (
                     <Badge variant="secondary">
                       <Heart className="w-3 h-3 mr-1" />

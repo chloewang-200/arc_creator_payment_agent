@@ -61,22 +61,37 @@ export interface PermitData {
  * Build EIP-2612 permit data for signing
  */
 export async function eip2612Permit({
-  token,
+  tokenAddress,
+  client,
   chain,
   ownerAddress,
   spenderAddress,
   value,
 }: {
-  token: ReturnType<typeof getContract>;
+  tokenAddress: Address;
+  client: PublicClient;
   chain: { id: number };
   ownerAddress: Address;
   spenderAddress: Address;
   value: bigint;
 }): Promise<PermitData> {
   const [name, version, nonce] = await Promise.all([
-    token.read.name(),
-    token.read.version(),
-    token.read.nonces([ownerAddress]),
+    client.readContract({
+      address: tokenAddress,
+      abi: eip2612Abi,
+      functionName: 'name',
+    }),
+    client.readContract({
+      address: tokenAddress,
+      abi: eip2612Abi,
+      functionName: 'version',
+    }),
+    client.readContract({
+      address: tokenAddress,
+      abi: eip2612Abi,
+      functionName: 'nonces',
+      args: [ownerAddress],
+    }),
   ]);
 
   return {
@@ -101,7 +116,7 @@ export async function eip2612Permit({
       name,
       version,
       chainId: chain.id,
-      verifyingContract: token.address,
+      verifyingContract: tokenAddress,
     },
     message: {
       // Convert bigint fields to string to match EIP-712 JSON schema expectations
@@ -137,14 +152,9 @@ export async function signPermit({
   permitAmount: bigint;
   walletClient: WalletClient;
 }): Promise<`0x${string}`> {
-  const token = getContract({
-    client,
-    address: tokenAddress,
-    abi: eip2612Abi,
-  });
-
   const permitData = await eip2612Permit({
-    token,
+    tokenAddress,
+    client,
     chain: client.chain!,
     ownerAddress,
     spenderAddress,
@@ -154,7 +164,10 @@ export async function signPermit({
   // Use wallet's signTypedData - MetaMask will prompt user
   const wrappedPermitSignature = await walletClient.signTypedData({
     account: ownerAddress,
-    ...permitData,
+    domain: permitData.domain as any,
+    types: permitData.types as any,
+    primaryType: permitData.primaryType,
+    message: permitData.message as any,
   });
 
   // Verify the signature

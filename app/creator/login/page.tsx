@@ -54,7 +54,7 @@ export default function CreatorLogin() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
       </div>
     );
   }
@@ -64,8 +64,8 @@ export default function CreatorLogin() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-              <Sparkles className="w-8 h-8 text-primary-foreground" />
+            <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center">
+              <Sparkles className="w-8 h-8 text-white" />
             </div>
           </div>
           <div>
@@ -112,7 +112,7 @@ export default function CreatorLogin() {
 
             <Button
               type="submit"
-              className="w-full gap-2"
+              className="w-full gap-2 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
               size="lg"
               disabled={isSigningIn}
             >

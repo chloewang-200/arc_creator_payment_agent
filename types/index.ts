@@ -14,6 +14,9 @@ export type SitePricing = {
   monthlyUSD: number | null; // e.g., 5, or null if not set
   tipPresetsUSD: number[]; // [1, 2, 5]
   recurringTipUSD?: number | null; // Optional recurring tip amount
+  refundConversationThreshold?: number; // Number of conversations required before refund (default: 3)
+  refundAutoThresholdUSD?: number; // Amount under which refunds can be auto-processed (default: 1.00)
+  refundContactEmail?: string | null; // Email for refunds above threshold
 };
 
 export type Entitlements = {
@@ -32,6 +35,7 @@ export type Creator = {
   pricing: SitePricing;
   hasContent: boolean; // false for tip-only creators
   walletAddress?: `0x${string}`; // Creator's wallet address for receiving payments
+  refundWalletAddress?: `0x${string}`; // Smart contract wallet for automated refunds
   stats?: {
     followers?: number;
     totalEarnings?: number;

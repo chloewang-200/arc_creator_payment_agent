@@ -1,16 +1,7 @@
 import { createConfig, http } from 'wagmi';
 import {
-  mainnet,
-  polygon,
-  arbitrum,
-  base,
-  optimism,
   sepolia,
   baseSepolia,
-  arbitrumSepolia,
-  optimismSepolia,
-  polygonAmoy,
-  avalancheFuji,
 } from 'wagmi/chains';
 import { metaMask } from 'wagmi/connectors';
 import { ARC_CHAIN_ID, ARC_RPC_URL } from './config';
@@ -63,20 +54,9 @@ const seiTestnet = {
 
 // Supported chains for multi-chain payments
 export const supportedChains = [
-  arcChain,      // Arc (destination)
-  // Mainnet
-  mainnet,       // Ethereum Mainnet
-  polygon,       // Polygon
-  arbitrum,      // Arbitrum One
-  base,          // Base
-  optimism,      // Optimism
-  // Testnet
+  arcChain,      // Arc Testnet
   sepolia,       // Ethereum Sepolia (testnet)
   baseSepolia,   // Base Sepolia (testnet)
-  arbitrumSepolia, // Arbitrum Sepolia (testnet)
-  optimismSepolia, // Optimism Sepolia (testnet)
-  polygonAmoy,   // Polygon Amoy (testnet)
-  avalancheFuji, // Avalanche Fuji (testnet)
   seiTestnet,    // Sei Testnet
 ] as const;
 
@@ -94,19 +74,8 @@ export const wagmiConfig = createConfig({
       retryDelay: 1000, // Start with 1 second delay
       timeout: 10000, // 10 second timeout
     }),
-    // Mainnet
-    [mainnet.id]: http(),
-    [polygon.id]: http(),
-    [arbitrum.id]: http(),
-    [base.id]: http(),
-    [optimism.id]: http(),
-    // Testnet
     [sepolia.id]: http(),
     [baseSepolia.id]: http(),
-    [arbitrumSepolia.id]: http(),
-    [optimismSepolia.id]: http(),
-    [polygonAmoy.id]: http(),
-    [avalancheFuji.id]: http(),
     [seiTestnet.id]: http('https://evm-rpc-testnet.sei-apis.com'),
   },
   pollingInterval: 8000, // Poll every 8 seconds instead of default 4 seconds

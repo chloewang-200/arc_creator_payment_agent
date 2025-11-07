@@ -11,7 +11,10 @@ export async function GET() {
         creator_pricing (
           monthly_usd,
           tip_presets_usd,
-          recurring_tip_usd
+          recurring_tip_usd,
+          refund_conversation_threshold,
+          refund_auto_threshold_usd,
+          refund_contact_email
         )
       `)
       .order('created_at', { ascending: false });
@@ -35,10 +38,16 @@ export async function GET() {
         monthlyUSD: creator.creator_pricing[0].monthly_usd ?? null,
         tipPresetsUSD: creator.creator_pricing[0].tip_presets_usd || [1, 2, 5],
         recurringTipUSD: creator.creator_pricing[0].recurring_tip_usd ?? null,
+        refundConversationThreshold: creator.creator_pricing[0].refund_conversation_threshold ?? 3,
+        refundAutoThresholdUSD: creator.creator_pricing[0].refund_auto_threshold_usd ?? 1.00,
+        refundContactEmail: creator.creator_pricing[0].refund_contact_email ?? null,
       } : {
         monthlyUSD: null,
         tipPresetsUSD: [1, 2, 5],
         recurringTipUSD: 10,
+        refundConversationThreshold: 3,
+        refundAutoThresholdUSD: 1.00,
+        refundContactEmail: null,
       },
       stats: {
         followers: creator.followers || 0,

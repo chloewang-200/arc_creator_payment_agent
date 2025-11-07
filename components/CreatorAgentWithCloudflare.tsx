@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Sparkles, Send, Loader2 } from 'lucide-react';
+import { Sparkles, Send, Loader2, X } from 'lucide-react';
 import { CheckoutModal } from './CheckoutModal';
 import { getAIName, getAIGreeting } from '@/lib/ai-names';
 import { useAccount } from 'wagmi';
@@ -23,7 +23,7 @@ interface CreatorAgentWithCloudflareProps {
 }
 
 export function CreatorAgentWithCloudflare({ creatorName, creatorId }: CreatorAgentWithCloudflareProps) {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const [creator, setCreator] = useState<Creator | null>(null);
   const [creatorPosts, setCreatorPosts] = useState<Post[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -88,6 +88,7 @@ export function CreatorAgentWithCloudflare({ creatorName, creatorId }: CreatorAg
 
   const [selectedIntent, setSelectedIntent] = useState<PaymentIntent | null>(null);
   const [input, setInput] = useState('');
+  const [isOpen, setIsOpen] = useState(true);
 
   // Note: We're using direct HTTP fetch instead of WebSocket
   // The useAgent hook tries to use WebSocket which requires special routing
@@ -114,6 +115,22 @@ export function CreatorAgentWithCloudflare({ creatorName, creatorId }: CreatorAg
   const sendMessage = async (text: string) => {
     if (!text.trim() || !creator) return;
 
+    // Track conversation
+    if (address && creator.id) {
+      try {
+        await fetch('/api/conversations/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            creatorId: creator.id,
+            userWalletAddress: address,
+          }),
+        });
+      } catch (err) {
+        console.error('Failed to track conversation:', err);
+      }
+    }
+
     // Add user message
     setAiMessages((prev) => [...prev, {
       role: 'user',
@@ -133,6 +150,7 @@ export function CreatorAgentWithCloudflare({ creatorName, creatorId }: CreatorAg
         body: JSON.stringify({
           type: 'chat',
           message: text,
+          userWalletAddress: address, // Pass user wallet for refund intent tracking
         }),
       });
 
@@ -203,6 +221,114 @@ export function CreatorAgentWithCloudflare({ creatorName, creatorId }: CreatorAg
                   if (paymentIntent) {
                     console.log('💳 Opening checkout with:', paymentIntent);
                     setSelectedIntent(paymentIntent);
+                  }
+                }
+                
+                // Handle refund requests
+                if (data.type === 'refund_request') {
+                  const { transactionId, refundType, amountUSD, chainId } = data;
+                  
+                  if (!address) {
+                    setAiMessages((prev) => [...prev, {
+                      role: 'assistant',
+                      content: 'Please connect your wallet to request a refund.',
+                    }]);
+                    setIsLoading(false);
+                    return;
+                  }
+
+                  try {
+                    const refundResponse = await fetch('/api/refunds', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        creatorId: creator.id,
+                        userWalletAddress: address,
+                        transactionId,
+                        refundType,
+                        amountUSD,
+                        chainId,
+                      }),
+                    });
+
+                    const refundData = await refundResponse.json();
+
+                    if (refundResponse.ok) {
+                      // Clear entitlements from localStorage if refund was for unlock/subscription
+                      if (refundType === 'unlock' && transactionId) {
+                        // Remove post from unlocked posts in localStorage
+                        // Note: transactionId might be postId, post_unlocks.id, or transaction_hash
+                        // We'll try to clear it from localStorage using the postId
+                        // The API will handle the database deletion
+                        try {
+                          const stored = localStorage.getItem('arc_entitlements');
+                          if (stored) {
+                            const entitlements = JSON.parse(stored);
+                            if (entitlements.postsUnlocked) {
+                              // Try transactionId as postId first
+                              if (entitlements.postsUnlocked[transactionId]) {
+                                delete entitlements.postsUnlocked[transactionId];
+                              }
+                              // Also check all posts and clear if needed (in case transactionId is not postId)
+                              // This is a fallback - the API should handle the actual database deletion
+                              localStorage.setItem('arc_entitlements', JSON.stringify(entitlements));
+                            }
+                          }
+                        } catch (e) {
+                          console.error('Error clearing localStorage entitlements:', e);
+                        }
+                      } else if (refundType === 'subscription') {
+                        // Clear subscription from localStorage
+                        try {
+                          const stored = localStorage.getItem('arc_entitlements');
+                          if (stored) {
+                            const entitlements = JSON.parse(stored);
+                            entitlements.subscriptionActiveUntil = undefined;
+                            localStorage.setItem('arc_entitlements', JSON.stringify(entitlements));
+                          }
+                        } catch (e) {
+                          console.error('Error clearing subscription from localStorage:', e);
+                        }
+                      } else if (refundType === 'recurringTip' && creator.id) {
+                        // Clear recurring tip from localStorage
+                        try {
+                          const stored = localStorage.getItem('arc_entitlements');
+                          if (stored) {
+                            const entitlements = JSON.parse(stored);
+                            if (entitlements.recurringTips && entitlements.recurringTips[creator.id]) {
+                              delete entitlements.recurringTips[creator.id];
+                              localStorage.setItem('arc_entitlements', JSON.stringify(entitlements));
+                            }
+                          }
+                        } catch (e) {
+                          console.error('Error clearing recurring tip from localStorage:', e);
+                        }
+                      }
+                      
+                      setAiMessages((prev) => [...prev, {
+                        role: 'assistant',
+                        content: refundData.refund.message || `Refund of $${refundData.refund.refundAmount.toFixed(2)} is being processed. The creator will review and approve it. Access has been revoked.`,
+                      }]);
+                    } else {
+                      // Check if it's a rejection
+                      if (refundData.error?.includes('rejected') || refundData.status === 'rejected') {
+                        setAiMessages((prev) => [...prev, {
+                          role: 'assistant',
+                          content: 'It seems like the refund request was rejected. You can contact the creator directly if you have questions about this decision.',
+                        }]);
+                      } else {
+                        setAiMessages((prev) => [...prev, {
+                          role: 'assistant',
+                          content: refundData.reason || refundData.error || 'Unable to process refund at this time.',
+                        }]);
+                      }
+                    }
+                  } catch (err) {
+                    console.error('Refund error:', err);
+                    setAiMessages((prev) => [...prev, {
+                      role: 'assistant',
+                      content: 'Sorry, there was an error processing your refund request. Please try again later.',
+                    }]);
                   }
                 }
                 
@@ -308,10 +434,22 @@ export function CreatorAgentWithCloudflare({ creatorName, creatorId }: CreatorAg
     sender: msg.role === 'user' ? 'user' : 'avatar',
   }));
 
+  if (!isOpen) {
+    return (
+      <Button
+        onClick={() => setIsOpen(true)}
+        className="fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-2xl z-50 bg-primary hover:bg-primary/90"
+        size="icon"
+      >
+        <Sparkles className="w-6 h-6" />
+      </Button>
+    );
+  }
+
   return (
     <>
-      <Card className="fixed bottom-4 right-4 w-96 h-[600px] shadow-2xl border-primary/20 flex flex-col z-50">
-        <CardHeader className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground pb-4">
+      <Card className="fixed bottom-4 right-4 w-96 h-[600px] shadow-2xl border-primary/20 flex flex-col z-50 overflow-hidden pt-0">
+        <CardHeader className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground pb-4 pt-4 rounded-t-xl">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10 border-2 border-primary-foreground/20">
               {creator?.avatar && (
@@ -331,6 +469,14 @@ export function CreatorAgentWithCloudflare({ creatorName, creatorId }: CreatorAg
               </div>
               <div className="text-xs opacity-90">Always online • {creatorName}'s AI</div>
             </div>
+            <Button
+              onClick={() => setIsOpen(false)}
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+            >
+              <X className="w-4 h-4" />
+            </Button>
           </div>
         </CardHeader>
 

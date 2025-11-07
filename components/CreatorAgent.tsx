@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Sparkles, Send, Loader2 } from 'lucide-react';
+import { Sparkles, Send, Loader2, X } from 'lucide-react';
 import { CheckoutModal } from './CheckoutModal';
 import { getAIName, getAIGreeting } from '@/lib/ai-names';
 import { creators } from '@/data/creators';
@@ -46,6 +46,7 @@ export function CreatorAgent({ creatorName, creatorId }: CreatorAgentProps) {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [selectedIntent, setSelectedIntent] = useState<PaymentIntent | null>(null);
+  const [isOpen, setIsOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -252,10 +253,22 @@ export function CreatorAgent({ creatorName, creatorId }: CreatorAgentProps) {
     }
   };
 
+  if (!isOpen) {
+    return (
+      <Button
+        onClick={() => setIsOpen(true)}
+        className="fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-2xl z-50 bg-primary hover:bg-primary/90"
+        size="icon"
+      >
+        <Sparkles className="w-6 h-6" />
+      </Button>
+    );
+  }
+
   return (
     <>
-      <Card className="fixed bottom-4 right-4 w-96 h-[600px] shadow-2xl border-primary/20 flex flex-col z-50">
-        <CardHeader className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground pb-4">
+      <Card className="fixed bottom-4 right-4 w-96 h-[600px] shadow-2xl border-primary/20 flex flex-col z-50 overflow-hidden pt-0">
+        <CardHeader className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground pb-4 pt-4 rounded-t-xl">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10 border-2 border-primary-foreground/20">
               {creator?.avatar && (
@@ -275,6 +288,14 @@ export function CreatorAgent({ creatorName, creatorId }: CreatorAgentProps) {
               </div>
               <div className="text-xs opacity-90">Always online • {creatorName}'s AI</div>
             </div>
+            <Button
+              onClick={() => setIsOpen(false)}
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+            >
+              <X className="w-4 h-4" />
+            </Button>
           </div>
         </CardHeader>
 

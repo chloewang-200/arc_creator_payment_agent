@@ -43,7 +43,6 @@ interface ConsolidationStep {
 const SUPPORTED_CHAINS = [
   { id: chains.sepolia.id, name: 'Ethereum Sepolia', rpc: chains.sepolia.rpcUrls.default.http[0] },
   { id: chains.baseSepolia.id, name: 'Base Sepolia', rpc: chains.baseSepolia.rpcUrls.default.http[0] },
-  { id: chains.optimismSepolia.id, name: 'Optimism Sepolia', rpc: chains.optimismSepolia.rpcUrls.default.http[0] },
   { id: 1328, name: 'Sei Testnet', rpc: 'https://evm-rpc-testnet.sei-apis.com' },
 ];
 
@@ -553,7 +552,7 @@ export function ConsolidateBalance({ creatorAddress, creatorId, onConsolidationC
 
             <Button
               onClick={handleStartConsolidation}
-              className="w-full gap-2"
+              className="w-full gap-2 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
               disabled={isConsolidating || consolidatableChains.length === 0}
             >
               <ArrowDownToLine className="w-4 h-4" />
@@ -654,7 +653,7 @@ export function ConsolidateBalance({ creatorAddress, creatorId, onConsolidationC
               <Button
                 onClick={executeConsolidation}
                 disabled={isConsolidating || consolidationSteps.every(s => s.status === 'completed')}
-                className="flex-1 gap-2"
+                className="flex-1 gap-2 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 {isConsolidating ? (
                   <>

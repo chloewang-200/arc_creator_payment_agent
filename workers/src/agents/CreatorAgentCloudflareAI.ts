@@ -12,6 +12,9 @@ interface CreatorAgentState {
     monthlyUSD: number;
     tipPresetsUSD: number[];
     recurringTipUSD?: number;
+    refundConversationThreshold?: number;
+    refundAutoThresholdUSD?: number;
+    refundContactEmail?: string;
   };
   posts?: Array<{
     id: string;
@@ -20,6 +23,8 @@ interface CreatorAgentState {
     contentType: string;
   }>;
   conversationHistory: any[];
+  // Track refund intent attempts per user wallet
+  refundIntentAttempts: Record<string, number>; // userWallet -> attempt count
 }
 
 interface Env {
@@ -34,6 +39,7 @@ export class CreatorAgent extends AIChatAgent<Env, CreatorAgentState> {
     creatorId: "",
     creatorName: "",
     conversationHistory: [],
+    refundIntentAttempts: {},
   };
 
   async onStart() {
@@ -44,13 +50,36 @@ export class CreatorAgent extends AIChatAgent<Env, CreatorAgentState> {
 
   async onChatMessage(onFinish) {
     // Use Cloudflare Workers AI instead of OpenAI
-    const systemPrompt = await this.buildSystemPrompt();
-    
     // Get the last user message
     const lastUserMessage = this.messages.filter(m => m.role === 'user').pop();
     if (!lastUserMessage) {
       return new Response("No user message found", { status: 400 });
     }
+
+    // Get user wallet from request context (passed from frontend)
+    // Note: This would need to be passed through the request, but for now we'll extract from message metadata
+    // In a real implementation, you'd get this from the request body
+    const userWallet = (lastUserMessage as any).userWalletAddress;
+    
+    // Detect refund intent in user message
+    const refundKeywords = ['refund', 'return', 'money back', 'get my money back', 'want my money back'];
+    const messageLower = lastUserMessage.content.toLowerCase();
+    const hasRefundIntent = refundKeywords.some(keyword => messageLower.includes(keyword));
+    
+    // Initialize refund intent attempts if needed
+    if (!this.state.refundIntentAttempts) {
+      this.state.refundIntentAttempts = {};
+    }
+    
+    // Track refund intent attempts
+    if (hasRefundIntent && userWallet) {
+      const currentAttempts = this.state.refundIntentAttempts[userWallet.toLowerCase()] || 0;
+      this.state.refundIntentAttempts[userWallet.toLowerCase()] = currentAttempts + 1;
+      await this.saveState();
+    }
+    
+    // Build system prompt with current refund attempt count
+    const systemPrompt = await this.buildSystemPrompt(userWallet);
 
     // Use Cloudflare's Llama model (free!)
     const prompt = `${systemPrompt}\n\nUser: ${lastUserMessage.content}\n\nAssistant:`;
@@ -88,7 +117,7 @@ export class CreatorAgent extends AIChatAgent<Env, CreatorAgentState> {
     }
   }
 
-  async buildSystemPrompt(): Promise<string> {
+  async buildSystemPrompt(userWallet?: string): Promise<string> {
     const creator = this.state;
     const aiName = creator.creatorName.split(' ')[0] + 'AI';
     
@@ -130,6 +159,48 @@ export class CreatorAgent extends AIChatAgent<Env, CreatorAgentState> {
     prompt += `- If user asks about unrelated topics (not about payments, subscriptions, tips, or ${creator.creatorName}'s content), politely redirect:\n`;
     prompt += `  Say: "I can only help you with payments and support for ${creator.creatorName}. Anything else I can help with?"\n`;
     prompt += `  Or: "Sorry, I'm here to help with payments and support for ${creator.creatorName}. What would you like to know about my content?"\n`;
+    
+    // Add refund handling instructions
+    const refundThreshold = (creator.pricing as any)?.refundConversationThreshold || 3;
+    const refundAutoThreshold = (creator.pricing as any)?.refundAutoThresholdUSD || 1.00;
+    const refundEmail = (creator.pricing as any)?.refundContactEmail;
+    
+    // Get current refund attempt count for this user
+    const currentAttempts = userWallet ? (this.state.refundIntentAttempts?.[userWallet.toLowerCase()] || 0) : 0;
+    
+    prompt += `\nRefund Policy:\n`;
+    prompt += `IMPORTANT: Only purchases (unlocks and subscriptions) can be refunded. Tips CANNOT be refunded.\n`;
+    prompt += `If user requests refund for a tip, politely explain: "I'm sorry, but tips are non-refundable as they are voluntary contributions to support the creator. However, I can help you with refunds for purchased content (unlocks or subscriptions) if you're not satisfied."\n`;
+    prompt += `When a user requests a refund for a purchase (unlock or subscription), try to prevent it (be helpful, offer alternatives, ask what went wrong).\n`;
+    prompt += `You have ${refundThreshold} attempts to try to prevent the refund.\n`;
+    prompt += `Current refund attempt count for this user: ${currentAttempts} out of ${refundThreshold}\n`;
+    
+    if (currentAttempts < refundThreshold) {
+      prompt += `Since this is attempt ${currentAttempts + 1} (below threshold of ${refundThreshold}), try to prevent the refund:\n`;
+      prompt += `- Ask what went wrong\n`;
+      prompt += `- Offer to help fix the issue\n`;
+      prompt += `- Be empathetic and understanding\n`;
+      prompt += `- Suggest alternatives if possible\n`;
+      prompt += `Example prevention responses:\n`;
+      prompt += `- "I'm sorry to hear you're not satisfied. What went wrong? Maybe I can help fix the issue instead of refunding."\n`;
+      prompt += `- "Before we process a refund, could you tell me what didn't meet your expectations? We'd love to make it right."\n`;
+      prompt += `- "I understand your concern. Is there something specific we could improve? We value your feedback."\n`;
+    } else {
+      prompt += `Since this is attempt ${currentAttempts} (at or above threshold of ${refundThreshold}), process the refund:\n`;
+      prompt += `- Acknowledge their request\n`;
+      prompt += `- Ask for transaction details (transactionId, refundType must be "unlock" or "subscription", amountUSD, chainId)\n`;
+      prompt += `- IMPORTANT: refundType must be "unlock" or "subscription", NOT "tip" or "recurringTip"\n`;
+      prompt += `- If amount is under $${refundAutoThreshold}, send: {"type": "refund_request", "transactionId": "...", "refundType": "unlock|subscription", "amountUSD": X, "chainId": Y}\n`;
+      if (refundEmail) {
+        prompt += `- If amount is above $${refundAutoThreshold}, direct them to contact ${refundEmail}\n`;
+      } else {
+        prompt += `- If amount is above $${refundAutoThreshold}, explain that refunds above this amount require contacting the creator directly\n`;
+      }
+    }
+    
+    prompt += `- Refunds include a 2% processing fee\n`;
+    prompt += `- If a user asks about their refund status, you can mention that refunds require creator approval and may take some time\n`;
+    prompt += `- If a refund was rejected, you can say: "It seems like your refund request was rejected. You can contact the creator directly if you have questions about this decision."\n`;
 
     return prompt;
   }

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useAccount, useChainId, useConnect, useDisconnect } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,8 +19,26 @@ export function WalletConnectButton() {
   const chainId = useChainId();
   const { connect, connectors, isPending } = useConnect();
   const { disconnect } = useDisconnect();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const metamaskConnector = connectors.find(c => c.id === 'metaMask' || c.name === 'MetaMask');
+
+  // Prevent hydration mismatch by not rendering wallet state until mounted
+  if (!mounted) {
+    return (
+      <Button
+        disabled
+        className="gap-2"
+      >
+        <Wallet className="w-4 h-4" />
+        Connect Wallet
+      </Button>
+    );
+  }
 
   if (!isConnected) {
     return (
