@@ -67,12 +67,12 @@ export async function createOrUpdateVoice(options: {
   const formData = new FormData();
   const audioBlob = new Blob([audioBuffer], { type: mimeType || DEFAULT_AUDIO_MIME });
   formData.append('files', audioBlob, fileName);
-  if (!existingVoiceId) {
-    formData.append('name', voiceName);
-  }
+  // Always include name field - required by ElevenLabs API
+  formData.append('name', voiceName);
   if (description) {
     formData.append('description', description);
   }
+  // Model ID is only for new voices, not edits
   if (ELEVENLABS_MODEL_ID && !existingVoiceId) {
     formData.append('model_id', ELEVENLABS_MODEL_ID);
   }

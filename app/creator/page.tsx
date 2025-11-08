@@ -1360,20 +1360,22 @@ function CreatorDashboardContent() {
                     {sampleVoiceScript}
                   </div>
                 </div>
-                {/* Demo limitation warning */}
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                  <p className="text-xs text-amber-800 leading-relaxed">
-                    ⚠️ <strong>Demo Limitation:</strong> You can only upload your voice <strong>once</strong> due to ElevenLabs free tier restrictions.
-                    Make sure your recording is clear before uploading! To update later, contact support.
-                  </p>
-                </div>
+                {/* Demo limitation warning - only show if voice exists and re-upload might be disabled */}
+                {/* {profile.elevenLabsVoiceId && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-xs text-amber-800 leading-relaxed">
+                      ⚠️ <strong>Note:</strong> Voice already uploaded. Re-uploading may be limited depending on your configuration.
+                      If re-upload fails, check your ALLOW_VOICE_REUPLOAD environment variable.
+                    </p>
+                  </div>
+                )} */}
 
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Upload new sample (max 10 MB)</Label>
                   <Input
                     type="file"
                     accept="audio/*"
-                    disabled={isUploadingVoice || !!profile.elevenLabsVoiceId}
+                    disabled={isUploadingVoice}
                     onChange={(e) => {
                       if (e.target.files?.[0]) {
                         handleVoiceUpload(e.target.files[0]);
@@ -1381,11 +1383,6 @@ function CreatorDashboardContent() {
                       }
                     }}
                   />
-                  {profile.elevenLabsVoiceId && (
-                    <p className="text-xs text-amber-600">
-                      ✓ Voice already uploaded. Cannot upload again due to demo limitations.
-                    </p>
-                  )}
                   {isUploadingVoice && (
                     <p className="text-xs text-muted-foreground flex items-center gap-2">
                       <Loader2 className="w-3 h-3 animate-spin" />
@@ -1410,7 +1407,7 @@ function CreatorDashboardContent() {
                     <Button
                       size="sm"
                       className="gap-2"
-                      disabled={isRecording || !!profile.elevenLabsVoiceId}
+                      disabled={isRecording}
                       onClick={startRecording}
                     >
                       <Circle className="w-3 h-3" />
@@ -1463,7 +1460,7 @@ function CreatorDashboardContent() {
                           size="sm"
                           className="gap-2"
                           onClick={() => handleVoiceUpload(recordedBlob, recordingDuration || undefined)}
-                          disabled={isUploadingVoice || !!profile.elevenLabsVoiceId}
+                          disabled={isUploadingVoice}
                         >
                           Generate Agent Voice
                         </Button>

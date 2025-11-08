@@ -8,6 +8,8 @@ const supabaseAdmin = createClient(
 );
 
 const VOICE_BUCKET = process.env.SUPABASE_VOICE_BUCKET || 'creator-voices';
+// Allow re-uploading voices (set to 'true' for demo/testing, 'false' for production with ElevenLabs free tier)
+const ALLOW_VOICE_REUPLOAD = process.env.ALLOW_VOICE_REUPLOAD === 'true';
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,14 +43,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Creator not found' }, { status: 404 });
     }
 
-    // DEMO LIMITATION: Only allow one voice upload per creator
+    // Check if re-upload is allowed via environment variable
+    // If ALLOW_VOICE_REUPLOAD is false (default), only allow one upload per creator
     // This is due to ElevenLabs free tier limitations
-    if (creator.elevenlabs_voice_id) {
-      console.log('[voice-upload] Voice already exists, rejecting upload', { creatorId: creator.id });
+    if (!ALLOW_VOICE_REUPLOAD && creator.elevenlabs_voice_id) {
+      console.log('[voice-upload] Voice already exists, rejecting upload', { creatorId: creator.id, allowReupload: ALLOW_VOICE_REUPLOAD });
       return NextResponse.json(
         {
           error: 'Voice already uploaded',
-          message: 'Demo limitation: Only one voice upload allowed per creator due to ElevenLabs free tier. Contact support to update your voice.',
+          message: 'Demo limitation: Only one voice upload allowed per creator due to ElevenLabs free tier. Set ALLOW_VOICE_REUPLOAD=true to allow re-uploads, or contact support to update your voice.',
         },
         { status: 403 }
       );
