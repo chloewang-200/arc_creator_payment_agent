@@ -14,7 +14,7 @@ contract MockUSDC is ERC20, Ownable {
 
     constructor() ERC20("USD Coin", "USDC") Ownable(msg.sender) {
         // Mint 1 million USDC to deployer for testing
-        _mint(msg.sender, 1_000_000 * 10**DECIMALS);
+        _mint(msg.sender, 1_000_000 * 10 ** DECIMALS);
     }
 
     /**
@@ -30,14 +30,14 @@ contract MockUSDC is ERC20, Ownable {
      * @param amount Amount to mint (in USDC, will be multiplied by 10^6)
      */
     function mint(address to, uint256 amount) external onlyOwner {
-        _mint(to, amount * 10**DECIMALS);
+        _mint(to, amount * 10 ** DECIMALS);
     }
 
     /**
      * @notice Faucet function - anyone can mint 100 USDC for testing
      */
     function faucet() external {
-        require(balanceOf(msg.sender) < 1000 * 10**DECIMALS, "You already have enough USDC");
-        _mint(msg.sender, 100 * 10**DECIMALS); // 100 USDC
+        require(balanceOf(msg.sender) < 1000 * 10 ** DECIMALS, "You already have enough USDC");
+        _mint(msg.sender, 100 * 10 ** DECIMALS); // 100 USDC
     }
 }

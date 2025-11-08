@@ -6,13 +6,7 @@ interface IERC20 {
 }
 
 contract PayRouter {
-    event Payment(
-        bytes32 indexed sku,
-        address indexed buyer,
-        address indexed creator,
-        uint256 amount,
-        uint16 feeBps
-    );
+    event Payment(bytes32 indexed sku, address indexed buyer, address indexed creator, uint256 amount, uint16 feeBps);
 
     address public immutable USDC;
     address public feeReceiver;
@@ -28,14 +22,8 @@ contract PayRouter {
         uint256 fee = (amountUSDC * feeBps) / 10_000;
         uint256 toCreator = amountUSDC - fee;
 
-        require(
-            IERC20(USDC).transferFrom(msg.sender, feeReceiver, fee),
-            "fee xfer failed"
-        );
-        require(
-            IERC20(USDC).transferFrom(msg.sender, creator, toCreator),
-            "xfer failed"
-        );
+        require(IERC20(USDC).transferFrom(msg.sender, feeReceiver, fee), "fee xfer failed");
+        require(IERC20(USDC).transferFrom(msg.sender, creator, toCreator), "xfer failed");
 
         emit Payment(sku, msg.sender, creator, amountUSDC, feeBps);
     }
