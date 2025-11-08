@@ -210,19 +210,3 @@ See [VERCEL_ENV_VARIABLES.md](./VERCEL_ENV_VARIABLES.md) for the complete list.
 ## 🤝 Contributing
 
 This is a private project. For questions or issues, please contact the maintainers.
-
-## 📝 License
-
-[Add your license here]
-
-## 🙏 Acknowledgments
-
-- **Arc Network** - For the economic infrastructure
-- **Circle** - For payment infrastructure and programmable wallets
-- **Cloudflare** - For AI infrastructure
-- **ElevenLabs** - For voice cloning technology
-- **Supabase** - For the backend infrastructure
-
----
-
-**Built with ❤️ for creators who want to own their business.**
