@@ -4,10 +4,11 @@ import {
   baseSepolia,
 } from 'wagmi/chains';
 import { metaMask } from 'wagmi/connectors';
+import { defineChain } from 'viem';
 import { ARC_CHAIN_ID, ARC_RPC_URL } from './config';
 
-// Arc chain definition
-const arcChain = {
+// Arc chain definition using viem's defineChain for proper typing
+export const arcChain = defineChain({
   id: ARC_CHAIN_ID,
   name: 'Arc Testnet',
   nativeCurrency: {
@@ -27,10 +28,10 @@ const arcChain = {
     },
   },
   testnet: true, // Mark as testnet
-} as const;
+});
 
 // Sei Testnet chain definition
-const seiTestnet = {
+const seiTestnet = defineChain({
   id: 1328,
   name: 'Sei Testnet',
   nativeCurrency: {
@@ -50,7 +51,7 @@ const seiTestnet = {
     },
   },
   testnet: true,
-} as const;
+});
 
 // Supported chains for multi-chain payments
 export const supportedChains = [
@@ -80,4 +81,3 @@ export const wagmiConfig = createConfig({
   },
   pollingInterval: 8000, // Poll every 8 seconds instead of default 4 seconds
 });
-

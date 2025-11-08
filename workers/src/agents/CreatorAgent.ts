@@ -77,7 +77,8 @@ export class CreatorAgent {
           const conversationHistory = (await this.state.storage.get('conversationHistory') as any[]) || [];
           const userMessage = data.message || data.text;
           const userWallet = data.userWalletAddress; // Get user wallet from request
-          
+          const userPurchases = data.userPurchases || []; // Get purchases from frontend
+
           conversationHistory.push({ role: 'user', content: userMessage });
 
           // Track refund intent attempts
@@ -86,7 +87,7 @@ export class CreatorAgent {
             const refundKeywords = ['refund', 'return', 'money back', 'get my money back', 'want my money back'];
             const messageLower = userMessage.toLowerCase();
             const hasRefundIntent = refundKeywords.some(keyword => messageLower.includes(keyword));
-            
+
             if (hasRefundIntent) {
               const walletKey = userWallet.toLowerCase();
               const currentAttempts = refundIntentAttempts[walletKey] || 0;
@@ -95,7 +96,7 @@ export class CreatorAgent {
             }
           }
 
-          const response = await this.handleChat(conversationHistory, data.userWalletAddress);
+          const response = await this.handleChat(conversationHistory, data.userWalletAddress, userPurchases);
           await this.state.storage.put('conversationHistory', conversationHistory);
 
           const newHeaders = new Headers(response.headers);
@@ -117,12 +118,12 @@ export class CreatorAgent {
     return new Response('Method not allowed', { status: 405, headers: corsHeaders });
   }
 
-  async handleChat(conversationHistory: any[], userWallet?: string): Promise<Response> {
+  async handleChat(conversationHistory: any[], userWallet?: string, userPurchases?: any[]): Promise<Response> {
     if (!this.env.AI) {
       return new Response("AI not configured", { status: 500 });
     }
 
-    const systemPrompt = await this.buildSystemPrompt(userWallet);
+    const systemPrompt = await this.buildSystemPrompt(userWallet, userPurchases);
 
     try {
       const response = await this.env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
@@ -136,14 +137,23 @@ export class CreatorAgent {
       const responseText = response.response || response.text || JSON.stringify(response);
       conversationHistory.push({ role: 'assistant', content: responseText });
 
-      // Check if response contains a payment action
+      // Check if response contains a payment action or refund request
       let paymentAction = null;
+      let refundRequest = null;
+
       try {
         // Try to extract JSON from the response
         const jsonMatch = responseText.match(/\{[^}]*"action"[^}]*\}/);
         if (jsonMatch) {
           paymentAction = JSON.parse(jsonMatch[0]);
           console.log('💰 Payment action detected:', paymentAction);
+        }
+
+        // Check for refund_request trigger (when AI says user wants refund)
+        const refundMatch = responseText.match(/\{[^}]*"type":\s*"refund_request"[^}]*\}/);
+        if (refundMatch) {
+          refundRequest = JSON.parse(refundMatch[0]);
+          console.log('💸 Refund request detected:', refundRequest);
         }
       } catch (e) {
         // Not JSON, that's fine
@@ -174,6 +184,16 @@ export class CreatorAgent {
             controller.enqueue(new TextEncoder().encode(
               'data: ' + JSON.stringify({ type: 'message', content: friendlyMessage }) + '\n\n'
             ));
+          } else if (refundRequest) {
+            // Emit the refund request
+            controller.enqueue(new TextEncoder().encode(
+              'data: ' + JSON.stringify(refundRequest) + '\n\n'
+            ));
+
+            // Send a friendly message
+            controller.enqueue(new TextEncoder().encode(
+              'data: ' + JSON.stringify({ type: 'message', content: 'Processing your refund request...' }) + '\n\n'
+            ));
           } else {
             // Regular message
             controller.enqueue(new TextEncoder().encode(
@@ -195,7 +215,7 @@ export class CreatorAgent {
     }
   }
 
-  async buildSystemPrompt(userWallet?: string): Promise<string> {
+  async buildSystemPrompt(userWallet?: string, userPurchases?: any[]): Promise<string> {
     const creatorName = await this.state.storage.get('creatorName') as string || 'Creator';
     const creatorBio = await this.state.storage.get('creatorBio') as string;
     const aiTone = await this.state.storage.get('aiTone') as string;
@@ -204,13 +224,17 @@ export class CreatorAgent {
     const pricing = await this.state.storage.get('pricing') as any;
     const posts = await this.state.storage.get('posts') as any[];
     const hasContent = await this.state.storage.get('hasContent') as boolean;
-    
+
     // Get refund intent attempts for this user
     const refundIntentAttempts = (await this.state.storage.get('refundIntentAttempts') as Record<string, number>) || {};
     const currentAttempts = userWallet ? (refundIntentAttempts[userWallet.toLowerCase()] || 0) : 0;
     const refundThreshold = pricing?.refundConversationThreshold || 3;
     const refundAutoThreshold = pricing?.refundAutoThresholdUSD || 1.00;
     const refundEmail = pricing?.refundContactEmail;
+
+    // Use purchases provided by frontend (already fetched from /api/purchases)
+    const purchases = userPurchases || [];
+    console.log('📦 Using user purchases:', purchases);
 
     // Log what we loaded for the system prompt
     console.log('🟢 Building system prompt with:', {
@@ -334,10 +358,27 @@ export class CreatorAgent {
     prompt += '\n=== REFUND POLICY ===\n';
     prompt += 'IMPORTANT: Only purchases (unlocks and subscriptions) can be refunded. Tips CANNOT be refunded.\n';
     prompt += 'If user requests refund for a tip, politely explain: "I\'m sorry, but tips are non-refundable as they are voluntary contributions to support the creator. However, I can help you with refunds for purchased content (unlocks or subscriptions) if you\'re not satisfied."\n';
+
+    // Show user's purchase history for easy refunds
+    if (purchases.length > 0) {
+      prompt += '\n=== USER\'S PURCHASES (REFUNDABLE) ===\n';
+      purchases.forEach((purchase: any, index: number) => {
+        if (purchase.type === 'unlock') {
+          prompt += (index + 1) + '. "' + purchase.postTitle + '" - $' + purchase.amountUSD.toFixed(2) + ' (transactionId: ' + purchase.transactionId + ')\n';
+        } else if (purchase.type === 'subscription') {
+          prompt += (index + 1) + '. Monthly Subscription - $' + purchase.amountUSD.toFixed(2) + ' (transactionId: ' + purchase.transactionId + ')\n';
+        }
+      });
+      prompt += '\n';
+    } else {
+      prompt += 'This user has NO purchases to refund.\n';
+      prompt += 'If they ask for a refund, politely explain: "You haven\'t made any purchases yet, so there\'s nothing to refund."\n';
+    }
+
     prompt += 'When a user requests a refund for a purchase (unlock or subscription), try to prevent it (be helpful, offer alternatives, ask what went wrong).\n';
     prompt += 'You have ' + refundThreshold + ' attempts to try to prevent the refund.\n';
     prompt += 'Current refund attempt count for this user: ' + currentAttempts + ' out of ' + refundThreshold + '\n';
-    
+
     if (currentAttempts < refundThreshold) {
       prompt += 'Since this is attempt ' + (currentAttempts + 1) + ' (below threshold of ' + refundThreshold + '), try to prevent the refund:\n';
       prompt += '- Ask what went wrong\n';
@@ -351,17 +392,31 @@ export class CreatorAgent {
     } else {
       prompt += 'Since this is attempt ' + currentAttempts + ' (at or above threshold of ' + refundThreshold + '), process the refund:\n';
       prompt += '- Acknowledge their request\n';
-      prompt += '- Ask for transaction details (transactionId, refundType must be "unlock" or "subscription", amountUSD, chainId)\n';
-      prompt += '- IMPORTANT: refundType must be "unlock" or "subscription", NOT "tip" or "recurringTip"\n';
-      prompt += '- If amount is under $' + refundAutoThreshold.toFixed(2) + ', output: {"type": "refund_request", "transactionId": "...", "refundType": "unlock|subscription", "amountUSD": X, "chainId": Y}\n';
-      if (refundEmail) {
-        prompt += '- If amount is above $' + refundAutoThreshold.toFixed(2) + ', direct them to contact ' + refundEmail + '\n';
+
+      if (purchases.length > 0) {
+        prompt += '- Look at the USER\'S PURCHASES section above\n';
+        prompt += '- If they have ONE purchase, automatically use it: {"type": "refund_request", "transactionId": "' + purchases[0].transactionId + '", "refundType": "' + purchases[0].type + '", "amountUSD": ' + purchases[0].amountUSD + ', "postId": "' + (purchases[0].postId || '') + '", "chainId": 5042002}\n';
+
+        if (purchases.length > 1) {
+          prompt += '- If they have MULTIPLE purchases, ask which one: "Which would you like to refund? ' + purchases.map((p: any, i: number) => (i + 1) + '. ' + (p.postTitle || 'Subscription')).join(', ') + '"\n';
+          prompt += '- Once they choose, use the corresponding transactionId from the list above\n';
+        }
+
+        // Check amounts for auto-refund eligibility
+        const hasSmallPurchase = purchases.some((p: any) => p.amountUSD <= refundAutoThreshold);
+        const hasLargePurchase = purchases.some((p: any) => p.amountUSD > refundAutoThreshold);
+
+        if (hasLargePurchase && refundEmail) {
+          prompt += '- If the purchase amount is above $' + refundAutoThreshold.toFixed(2) + ', direct them to contact ' + refundEmail + '\n';
+        } else if (hasLargePurchase) {
+          prompt += '- If the purchase amount is above $' + refundAutoThreshold.toFixed(2) + ', explain that refunds above this amount require contacting the creator directly\n';
+        }
       } else {
-        prompt += '- If amount is above $' + refundAutoThreshold.toFixed(2) + ', explain that refunds above this amount require contacting the creator directly\n';
+        prompt += '- Since user has NO purchases, politely explain they have nothing to refund\n';
       }
     }
-    prompt += '- Refunds include a 2% processing fee\n';
-    prompt += '- If a user asks about their refund status, you can mention that refunds require creator approval and may take some time\n';
+    prompt += '- Refunds may include a 2% processing fee for manual approvals\n';
+    prompt += '- If a user asks about their refund status, you can mention that refunds may require creator approval and can take some time\n';
     prompt += '- If a refund was rejected, you can say: "It seems like your refund request was rejected. You can contact the creator directly if you have questions about this decision."\n';
     
     return prompt;

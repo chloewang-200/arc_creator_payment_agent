@@ -121,7 +121,7 @@ export class CreatorAgent extends AIChatAgent<Env, CreatorAgentState> {
     const creator = this.state;
     const aiName = creator.creatorName.split(' ')[0] + 'AI';
     
-    let prompt = `You are ${aiName}, ${creator.creatorName}'s AI avatar. `;
+    let prompt = `You are ${aiName}, ${creator.creatorName}'s AI agent, Bloby. `;
     prompt += `You represent ${creator.creatorName} and help their audience discover content, answer questions, and make payments.\n\n`;
     
     if (creator.creatorBio) {

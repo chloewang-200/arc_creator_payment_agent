@@ -39,6 +39,11 @@ export async function GET() {
       voicePreviewEnabled: creator.voice_preview_enabled ?? false,
       voiceCloneStatus: creator.voice_clone_status || 'missing',
       elevenLabsVoiceId: creator.elevenlabs_voice_id,
+      circleWalletSetId: creator.circle_wallet_set_id,
+      circleWalletId: creator.circle_wallet_id,
+      circleWalletAddress: creator.circle_wallet_address,
+      circleWalletChain: creator.circle_wallet_chain,
+      circleWalletStatus: creator.circle_wallet_status,
       pricing: creator.creator_pricing?.[0] ? {
         monthlyUSD: creator.creator_pricing[0].monthly_usd ?? null,
         tipPresetsUSD: creator.creator_pricing[0].tip_presets_usd || [1, 2, 5],

@@ -71,6 +71,11 @@ export async function GET(request: NextRequest) {
       voicePreviewEnabled: data.voice_preview_enabled ?? false,
       voiceCloneStatus: data.voice_clone_status || 'missing',
       elevenLabsVoiceId: data.elevenlabs_voice_id,
+      circleWalletSetId: data.circle_wallet_set_id,
+      circleWalletId: data.circle_wallet_id,
+      circleWalletAddress: data.circle_wallet_address,
+      circleWalletChain: data.circle_wallet_chain,
+      circleWalletStatus: data.circle_wallet_status,
     };
 
     const pricing = data.creator_pricing?.[0] ? {
@@ -103,11 +108,11 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const {
-      email,
-      creatorId,
-      walletAddress,
-      username,
+  const {
+    email,
+    creatorId,
+    walletAddress,
+    username,
       name,
       bio,
       avatar,
@@ -119,11 +124,16 @@ export async function PUT(request: NextRequest) {
       refundWalletAddress,
       refundWalletChainId,
       voiceSampleUrl,
-      voiceSampleDurationSeconds,
-      voicePreviewEnabled,
-      voiceCloneStatus,
-      elevenLabsVoiceId,
-    } = body;
+    voiceSampleDurationSeconds,
+    voicePreviewEnabled,
+    voiceCloneStatus,
+    elevenLabsVoiceId,
+    circleWalletSetId,
+    circleWalletId,
+    circleWalletAddress,
+    circleWalletChain,
+    circleWalletStatus,
+  } = body;
 
     // Support updating by creatorId OR email+username+name
     if (creatorId) {
@@ -145,6 +155,11 @@ export async function PUT(request: NextRequest) {
       if (voicePreviewEnabled !== undefined) updateData.voice_preview_enabled = voicePreviewEnabled;
       if (voiceCloneStatus !== undefined) updateData.voice_clone_status = voiceCloneStatus;
       if (elevenLabsVoiceId !== undefined) updateData.elevenlabs_voice_id = elevenLabsVoiceId;
+      if (circleWalletSetId !== undefined) updateData.circle_wallet_set_id = circleWalletSetId;
+      if (circleWalletId !== undefined) updateData.circle_wallet_id = circleWalletId;
+      if (circleWalletAddress !== undefined) updateData.circle_wallet_address = circleWalletAddress;
+      if (circleWalletChain !== undefined) updateData.circle_wallet_chain = circleWalletChain;
+      if (circleWalletStatus !== undefined) updateData.circle_wallet_status = circleWalletStatus;
 
       const { data: creator, error: creatorError } = await supabase
         .from('creators')
@@ -195,6 +210,11 @@ export async function PUT(request: NextRequest) {
         voice_preview_enabled: voicePreviewEnabled,
         voice_clone_status: voiceCloneStatus,
         elevenlabs_voice_id: elevenLabsVoiceId,
+        circle_wallet_set_id: circleWalletSetId,
+        circle_wallet_id: circleWalletId,
+        circle_wallet_address: circleWalletAddress,
+        circle_wallet_chain: circleWalletChain,
+        circle_wallet_status: circleWalletStatus,
       }, {
         onConflict: 'email',
       })

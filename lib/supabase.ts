@@ -29,6 +29,11 @@ export type Creator = {
   voice_preview_enabled?: boolean;
   voice_clone_status?: string;
   elevenlabs_voice_id?: string;
+  circle_wallet_set_id?: string;
+  circle_wallet_id?: string;
+  circle_wallet_address?: string;
+  circle_wallet_chain?: string;
+  circle_wallet_status?: string;
   followers?: number;
   total_earnings?: number;
   created_at: string;

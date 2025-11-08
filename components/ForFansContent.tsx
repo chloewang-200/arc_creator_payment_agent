@@ -24,7 +24,27 @@ export function ForFansContent() {
         const response = await fetch('/api/creators/list');
         if (response.ok) {
           const data = await response.json();
-          setCreators(data.creators || []);
+          const creatorsList = data.creators || [];
+          
+          // Reorder: alex-creator and sam developer first
+          const priorityUsernames = ['alex-creator', 'sam-dev'];
+          const sortedCreators = [...creatorsList].sort((a, b) => {
+            const aIndex = priorityUsernames.indexOf(a.username);
+            const bIndex = priorityUsernames.indexOf(b.username);
+            
+            // If both are in priority list, maintain their order
+            if (aIndex !== -1 && bIndex !== -1) {
+              return aIndex - bIndex;
+            }
+            // If only a is in priority list, a comes first
+            if (aIndex !== -1) return -1;
+            // If only b is in priority list, b comes first
+            if (bIndex !== -1) return 1;
+            // Neither is in priority list, maintain original order
+            return 0;
+          });
+          
+          setCreators(sortedCreators);
         }
       } catch (error) {
         console.error('Error loading creators:', error);
@@ -57,7 +77,7 @@ export function ForFansContent() {
 
         {/* Bloby Introduction Section */}
         <div className="relative w-full mb-16">
-          <div className="relative overflow-hidden rounded-3xl bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-2xl">
+          <div className="relative overflow-hidden rounded-3xl bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-xl">
             <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div>
             <div className="relative flex flex-col md:flex-row items-center gap-8 p-8 md:p-10">
               <div className="relative shrink-0">

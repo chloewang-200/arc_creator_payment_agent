@@ -143,7 +143,7 @@ function HomeContent() {
 
             {/* Bloby Section */}
             <div className="relative w-full mb-24">
-              <div className="relative overflow-hidden rounded-3xl bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-2xl">
+              <div className="relative overflow-hidden rounded-3xl bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-xl">
                 <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div>
                 <div className="relative flex flex-col md:flex-row items-center gap-8 p-8 md:p-12">
                   <div className="relative shrink-0">

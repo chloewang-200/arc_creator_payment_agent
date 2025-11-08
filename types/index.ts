@@ -54,6 +54,11 @@ export type Creator = {
   voiceCloneStatus?: 'missing' | 'pending' | 'ready' | 'failed';
   elevenLabsVoiceId?: string | null;
   voicePreviewEnabled?: boolean;
+  circleWalletSetId?: string | null;
+  circleWalletId?: string | null;
+  circleWalletAddress?: string | null;
+  circleWalletChain?: string | null;
+  circleWalletStatus?: string | null;
 };
 
 export type PaymentIntent = {
@@ -63,6 +68,16 @@ export type PaymentIntent = {
   creatorAddress?: `0x${string}`; // Creator's wallet address for receiving payments
   amountUSD: number;
   title?: string;
+};
+
+export type RefundIntent = {
+  kind: 'unlock' | 'subscription';
+  postId?: string;
+  postTitle?: string;
+  creatorId: string;
+  amountUSD: number;
+  transactionId: string; // Original transaction ID or post ID
+  chainId?: number;
 };
 
 export type AvatarMessage = {

@@ -11,7 +11,8 @@ import { ConsolidateBalance } from '@/components/ConsolidateBalance';
 import { CreatorAuthGuard } from '@/components/CreatorAuthGuard';
 import { TransactionLog } from '@/components/TransactionLog';
 import { PendingRefunds } from '@/components/PendingRefunds';
-import { PrivyRefundWalletSetup } from '@/components/PrivyRefundWalletSetup';
+import { CircleRefundWalletSetup } from '@/components/CircleRefundWalletSetup';
+import { RefundHistory } from '@/components/RefundHistory';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuth } from '@/lib/auth-context';
 import { WalletConnectButton } from '@/components/WalletConnectButton';
@@ -741,7 +742,7 @@ function CreatorDashboardContent() {
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
           <ErrorBoundary>
             {profile.id ? (
-              <PlatformEarnings creatorId={profile.id} />
+              <PlatformEarnings creatorId={profile.id} creatorAddress={profile.walletAddress} />
             ) : (
               <UniversalBalance creatorAddress={profile.walletAddress} />
             )}
@@ -766,42 +767,42 @@ function CreatorDashboardContent() {
             <Button
               variant={activeTab === 'overview' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('overview')}
-              className={`!rounded-b-none !rounded-t-[2px] ${activeTab === 'overview' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+              className={`!rounded-b-none !rounded-t-[20px] ${activeTab === 'overview' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               Overview
             </Button>
             <Button
               variant={activeTab === 'content' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('content')}
-              className={`!rounded-b-none !rounded-t-[2px] ${activeTab === 'content' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+              className={`!rounded-b-none !rounded-t-[20px] ${activeTab === 'content' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               Content
             </Button>
             <Button
               variant={activeTab === 'ai-avatar' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('ai-avatar')}
-              className={`!rounded-b-none !rounded-t-[2px] ${activeTab === 'ai-avatar' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+              className={`!rounded-b-none !rounded-t-[20px] ${activeTab === 'ai-avatar' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
-              AI Avatar
+              Bloby Avatar
             </Button>
             <Button
               variant={activeTab === 'voice' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('voice')}
-              className={`!rounded-b-none !rounded-t-[2px] ${activeTab === 'voice' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+              className={`!rounded-b-none !rounded-t-[20px] ${activeTab === 'voice' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               Voice Agent
             </Button>
             <Button
               variant={activeTab === 'settings' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('settings')}
-              className={`!rounded-b-none !rounded-t-[2px] ${activeTab === 'settings' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+              className={`!rounded-b-none !rounded-t-[20px] ${activeTab === 'settings' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               Settings
             </Button>
             <Button
               variant={activeTab === 'transactions' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('transactions')}
-              className={`!rounded-b-none !rounded-t-[2px] ${activeTab === 'transactions' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+              className={`!rounded-b-none !rounded-t-[20px] ${activeTab === 'transactions' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               Transactions
             </Button>
@@ -1524,7 +1525,7 @@ function CreatorDashboardContent() {
           <div className="space-y-6">
             {/* Automated Refund Wallet Setup */}
             {profile.id && profile.walletAddress && (
-              <PrivyRefundWalletSetup
+              <CircleRefundWalletSetup
                 creatorId={profile.id}
                 creatorWallet={profile.walletAddress as `0x${string}`}
               />
@@ -1536,6 +1537,11 @@ function CreatorDashboardContent() {
                 creatorId={profile.id}
                 creatorWallet={profile.walletAddress as `0x${string}`}
               />
+            )}
+
+            {/* Refund History */}
+            {profile.id && (
+              <RefundHistory creatorId={profile.id} />
             )}
 
             {/* Transaction History */}

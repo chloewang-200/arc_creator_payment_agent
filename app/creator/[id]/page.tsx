@@ -371,7 +371,7 @@ function CreatorPageContent() {
                   </div>
                 )}
               </div>
-              <div className="flex flex-col items-center gap-3">
+              {/* <div className="flex flex-col items-center gap-3">
                 <div
                   className="relative cursor-pointer hover:scale-110 transition-transform duration-200"
                   onClick={() => {
@@ -384,7 +384,7 @@ function CreatorPageContent() {
                 >
                   <BlobAvatar
                     className="h-36 w-36"
-                    size={144}
+                    size={224}
                   />
                   {showBlobbyTooltip && (
                     <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-foreground text-background rounded-lg shadow-lg text-sm whitespace-nowrap animate-in fade-in slide-in-from-bottom-2 z-[60]">
@@ -405,7 +405,7 @@ function CreatorPageContent() {
                     Talk to {creator.name.split(' ')[0]}'s agent Bloby
                   </span>
                 </div>
-              </div>
+              </div> */}
             </div>
           </CardContent>
         </Card>

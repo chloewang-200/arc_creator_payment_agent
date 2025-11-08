@@ -5,13 +5,13 @@ export function getAIName(creatorName: string): string {
   
   // Trendy naming patterns
   const patterns = [
-    `${firstName}AI`,      // AlexAI, SarahAI
+    `${firstName}Bloby`,      // AlexAI, SarahAI
     `${firstName}Bot`,     // AlexBot, SarahBot
     `${firstName}Agent`,   // AlexAgent, SarahAgent
   ];
   
   // Simple: use AI suffix for most, but can customize per creator
-  return `${firstName}AI`;
+  return `${firstName}Bloby`;
 }
 
 // Generate personalized greetings based on creator (friendly and welcoming)
@@ -20,10 +20,10 @@ export function getAIGreeting(creatorName: string, creatorBio?: string, pricing?
 
   // Friendly, welcoming greetings (variations for natural feel)
   const greetings = [
-    `Hi! How are you doing today? I'm ${firstName}'s AI avatar. Would greatly appreciate your support! 😊`,
-    `Hey there! Thanks for stopping by. I'm ${firstName}'s AI assistant. Your support means the world!`,
-    `Hello! Hope you're having a great day. I'm ${firstName}'s AI. Would love your support!`,
-    `Hi! Nice to meet you. I'm ${firstName}'s digital assistant. Any support would be amazing! 💜`,
+    `Hi! How are you doing today? I'm ${firstName}'s Bloby. Would greatly appreciate your support! 😊`,
+    `Hey there! Thanks for stopping by. I'm ${firstName}'s Bloby. Your support means the world!`,
+    `Hello! Hope you're having a great day. I'm ${firstName}'s Bloby. Would love your support!`,
+    `Hi! Nice to meet you. I'm ${firstName}'s Bloby. Any support would be amazing! 💜`,
   ];
 
   // Return a random greeting for variety

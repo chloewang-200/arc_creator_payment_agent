@@ -259,23 +259,25 @@ export function CreatorAgent({ creatorName, creatorId, autoOpen = false }: Creat
     const firstName = creatorName.split(' ')[0];
     return (
       <div
-        className="fixed bottom-4 right-4 z-50"
+        className="fixed bottom-4 right-8 z-50"
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
       >
         {showTooltip && (
           <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-foreground text-background rounded-lg shadow-lg text-sm whitespace-nowrap animate-in fade-in slide-in-from-bottom-2">
-            Chat with {firstName}'s agent
+            Chat with {firstName}'s bloby
             <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-foreground"></div>
           </div>
         )}
-        <Button
+        <div
           onClick={() => setIsOpen(true)}
-          className="h-14 w-14 rounded-full shadow-2xl bg-primary hover:bg-primary/90 transition-all duration-200 hover:scale-110"
-          size="icon"
+          className="cursor-pointer hover:scale-110 transition-transform duration-200"
         >
-          <span className="text-2xl">👋</span>
-        </Button>
+          <BlobAvatar
+            className="h-20 w-20"
+            size={150}
+          />
+        </div>
       </div>
     );
   }
@@ -296,10 +298,10 @@ export function CreatorAgent({ creatorName, creatorId, autoOpen = false }: Creat
                 <span className="font-semibold">{aiName}</span>
                 <Badge variant="secondary" className="text-xs bg-primary-foreground/20 text-primary-foreground">
                   <Sparkles className="w-3 h-3 mr-1" />
-                  AI Avatar
+                  AI Bloby
                 </Badge>
               </div>
-              <div className="text-xs opacity-90">Always online • {creatorName}'s AI</div>
+              <div className="text-xs opacity-90">Always online • {creatorName}'s Bloby</div>
             </div>
             <Button
               onClick={() => setIsOpen(false)}

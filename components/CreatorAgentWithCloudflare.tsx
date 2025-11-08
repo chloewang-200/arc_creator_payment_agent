@@ -12,10 +12,11 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Sparkles, Send, Loader2, X } from 'lucide-react';
 import { CheckoutModal } from './CheckoutModal';
+import { RefundModal } from './RefundModal';
 import { getAIName, getAIGreeting } from '@/lib/ai-names';
-import { useAccount } from 'wagmi';
+import { useAccount, useChainId } from 'wagmi';
 import { isAgentEnabled, AGENT_CONFIG } from '@/lib/agent-config';
-import type { PaymentIntent, Creator, Post } from '@/types';
+import type { PaymentIntent, RefundIntent, Creator, Post } from '@/types';
 
 interface CreatorAgentWithCloudflareProps {
   creatorName: string;
@@ -25,6 +26,7 @@ interface CreatorAgentWithCloudflareProps {
 
 export function CreatorAgentWithCloudflare({ creatorName, creatorId, autoOpen = false }: CreatorAgentWithCloudflareProps) {
   const { isConnected, address } = useAccount();
+  const chainId = useChainId();
   const [creator, setCreator] = useState<Creator | null>(null);
   const [creatorPosts, setCreatorPosts] = useState<Post[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -88,6 +90,7 @@ export function CreatorAgentWithCloudflare({ creatorName, creatorId, autoOpen = 
   const greeting = getAIGreeting(creatorName, creator?.bio, pricingInfo);
 
   const [selectedIntent, setSelectedIntent] = useState<PaymentIntent | null>(null);
+  const [selectedRefundIntent, setSelectedRefundIntent] = useState<RefundIntent | null>(null);
   const [input, setInput] = useState('');
   const [isOpen, setIsOpen] = useState(autoOpen);
   const [showTooltip, setShowTooltip] = useState(false);
@@ -133,6 +136,23 @@ export function CreatorAgentWithCloudflare({ creatorName, creatorId, autoOpen = 
       }
     }
 
+    // Fetch user's purchases for refund detection
+    let userPurchases: any[] = [];
+    if (address && creator.id) {
+      try {
+        const purchasesResponse = await fetch(`/api/purchases?userWalletAddress=${address}&creatorId=${creator.id}`);
+        if (purchasesResponse.ok) {
+          const purchasesData = await purchasesResponse.json();
+          userPurchases = purchasesData.purchases || [];
+          console.log('📦 Fetched user purchases:', userPurchases);
+        } else {
+          console.error('❌ Failed to fetch purchases:', purchasesResponse.status, purchasesResponse.statusText);
+        }
+      } catch (err) {
+        console.error('Failed to fetch user purchases:', err);
+      }
+    }
+
     // Add user message
     setAiMessages((prev) => [...prev, {
       role: 'user',
@@ -153,6 +173,7 @@ export function CreatorAgentWithCloudflare({ creatorName, creatorId, autoOpen = 
           type: 'chat',
           message: text,
           userWalletAddress: address, // Pass user wallet for refund intent tracking
+          userPurchases, // Pass purchases from frontend to avoid CORS issues
         }),
       });
 
@@ -226,10 +247,10 @@ export function CreatorAgentWithCloudflare({ creatorName, creatorId, autoOpen = 
                   }
                 }
                 
-                // Handle refund requests
+                // Handle refund requests - show modal like payment flow
                 if (data.type === 'refund_request') {
-                  const { transactionId, refundType, amountUSD, chainId } = data;
-                  
+                  const { transactionId, refundType, amountUSD, postId } = data;
+
                   if (!address) {
                     setAiMessages((prev) => [...prev, {
                       role: 'assistant',
@@ -239,98 +260,35 @@ export function CreatorAgentWithCloudflare({ creatorName, creatorId, autoOpen = 
                     return;
                   }
 
-                  try {
-                    const refundResponse = await fetch('/api/refunds', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        creatorId: creator.id,
-                        userWalletAddress: address,
-                        transactionId,
-                        refundType,
-                        amountUSD,
-                        chainId,
-                      }),
-                    });
+                  // Create RefundIntent and show modal
+                  let refundIntent: RefundIntent | null = null;
 
-                    const refundData = await refundResponse.json();
+                  if (refundType === 'unlock') {
+                    // Find the post title if we have the postId
+                    const post = creatorPosts.find(p => p.id === (postId || transactionId));
 
-                    if (refundResponse.ok) {
-                      // Clear entitlements from localStorage if refund was for unlock/subscription
-                      if (refundType === 'unlock' && transactionId) {
-                        // Remove post from unlocked posts in localStorage
-                        // Note: transactionId might be postId, post_unlocks.id, or transaction_hash
-                        // We'll try to clear it from localStorage using the postId
-                        // The API will handle the database deletion
-                        try {
-                          const stored = localStorage.getItem('arc_entitlements');
-                          if (stored) {
-                            const entitlements = JSON.parse(stored);
-                            if (entitlements.postsUnlocked) {
-                              // Try transactionId as postId first
-                              if (entitlements.postsUnlocked[transactionId]) {
-                                delete entitlements.postsUnlocked[transactionId];
-                              }
-                              // Also check all posts and clear if needed (in case transactionId is not postId)
-                              // This is a fallback - the API should handle the actual database deletion
-                              localStorage.setItem('arc_entitlements', JSON.stringify(entitlements));
-                            }
-                          }
-                        } catch (e) {
-                          console.error('Error clearing localStorage entitlements:', e);
-                        }
-                      } else if (refundType === 'subscription') {
-                        // Clear subscription from localStorage
-                        try {
-                          const stored = localStorage.getItem('arc_entitlements');
-                          if (stored) {
-                            const entitlements = JSON.parse(stored);
-                            entitlements.subscriptionActiveUntil = undefined;
-                            localStorage.setItem('arc_entitlements', JSON.stringify(entitlements));
-                          }
-                        } catch (e) {
-                          console.error('Error clearing subscription from localStorage:', e);
-                        }
-                      } else if (refundType === 'recurringTip' && creator.id) {
-                        // Clear recurring tip from localStorage
-                        try {
-                          const stored = localStorage.getItem('arc_entitlements');
-                          if (stored) {
-                            const entitlements = JSON.parse(stored);
-                            if (entitlements.recurringTips && entitlements.recurringTips[creator.id]) {
-                              delete entitlements.recurringTips[creator.id];
-                              localStorage.setItem('arc_entitlements', JSON.stringify(entitlements));
-                            }
-                          }
-                        } catch (e) {
-                          console.error('Error clearing recurring tip from localStorage:', e);
-                        }
-                      }
-                      
-                      setAiMessages((prev) => [...prev, {
-                        role: 'assistant',
-                        content: refundData.refund.message || `Refund of $${refundData.refund.refundAmount.toFixed(2)} is being processed. The creator will review and approve it. Access has been revoked.`,
-                      }]);
-                    } else {
-                      // Check if it's a rejection
-                      if (refundData.error?.includes('rejected') || refundData.status === 'rejected') {
-                        setAiMessages((prev) => [...prev, {
-                          role: 'assistant',
-                          content: 'It seems like the refund request was rejected. You can contact the creator directly if you have questions about this decision.',
-                        }]);
-                      } else {
-                        setAiMessages((prev) => [...prev, {
-                          role: 'assistant',
-                          content: refundData.reason || refundData.error || 'Unable to process refund at this time.',
-                        }]);
-                      }
-                    }
-                  } catch (err) {
-                    console.error('Refund error:', err);
-                    setAiMessages((prev) => [...prev, {
-                      role: 'assistant',
-                      content: 'Sorry, there was an error processing your refund request. Please try again later.',
-                    }]);
+                    refundIntent = {
+                      kind: 'unlock',
+                      postId: postId || transactionId,
+                      postTitle: post?.title,
+                      creatorId: creator!.id,
+                      amountUSD,
+                      transactionId,
+                      chainId,
+                    };
+                  } else if (refundType === 'subscription') {
+                    refundIntent = {
+                      kind: 'subscription',
+                      creatorId: creator!.id,
+                      amountUSD,
+                      transactionId,
+                      chainId,
+                    };
+                  }
+
+                  if (refundIntent) {
+                    console.log('💸 Opening refund modal with:', refundIntent);
+                    setSelectedRefundIntent(refundIntent);
                   }
                 }
                 
@@ -440,23 +398,25 @@ export function CreatorAgentWithCloudflare({ creatorName, creatorId, autoOpen = 
     const firstName = creatorName.split(' ')[0];
     return (
       <div
-        className="fixed bottom-4 right-4 z-50"
+        className="fixed bottom-4 right-8 z-50"
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
       >
         {showTooltip && (
           <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-foreground text-background rounded-lg shadow-lg text-sm whitespace-nowrap animate-in fade-in slide-in-from-bottom-2">
-            Chat with {firstName}'s agent
+            Chat with {firstName}'s bloby
             <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-foreground"></div>
           </div>
         )}
-        <Button
+        <div
           onClick={() => setIsOpen(true)}
-          className="h-14 w-14 rounded-full shadow-2xl bg-primary hover:bg-primary/90 transition-all duration-200 hover:scale-110"
-          size="icon"
+          className="cursor-pointer hover:scale-110 transition-transform duration-200"
         >
-          <span className="text-2xl">👋</span>
-        </Button>
+          <BlobAvatar
+            className="h-20 w-20"
+            size={150}
+          />
+        </div>
       </div>
     );
   }
@@ -477,10 +437,10 @@ export function CreatorAgentWithCloudflare({ creatorName, creatorId, autoOpen = 
                 <span className="font-semibold">{aiName}</span>
                 <Badge variant="secondary" className="text-xs bg-primary-foreground/20 text-primary-foreground">
                   <Sparkles className="w-3 h-3 mr-1" />
-                  AI Avatar
+                  AI Bloby
                 </Badge>
               </div>
-              <div className="text-xs opacity-90">Always online • {creatorName}'s AI</div>
+              <div className="text-xs opacity-90">Always online • {creatorName}'s Bloby</div>
             </div>
             <Button
               onClick={() => setIsOpen(false)}
@@ -574,6 +534,18 @@ export function CreatorAgentWithCloudflare({ creatorName, creatorId, autoOpen = 
           intent={selectedIntent}
           onClose={() => setSelectedIntent(null)}
           onSuccess={() => setSelectedIntent(null)}
+        />
+      )}
+
+      {selectedRefundIntent && (
+        <RefundModal
+          intent={selectedRefundIntent}
+          onClose={() => setSelectedRefundIntent(null)}
+          onSuccess={() => {
+            setSelectedRefundIntent(null);
+            // Refresh the page to update entitlements
+            window.location.reload();
+          }}
         />
       )}
     </>
