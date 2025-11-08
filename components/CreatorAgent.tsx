@@ -443,6 +443,12 @@ export function CreatorAgent({ creatorName, creatorId, autoOpen = false, onUnloc
             </div>
           )}
           
+          <div className="bg-muted/50 border border-border/50 rounded-lg p-2 text-xs text-muted-foreground">
+            <p className="leading-relaxed">
+              💡 <span className="font-medium bg-red-500/20 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded">Demo Note:</span> Using free LLM models for demo version - AI might be a bit slow or less accurate. Please rephrase your question if you don't get optimal results.
+            </p>
+          </div>
+          
           <div className="flex gap-2">
             <Input
               type="text"
