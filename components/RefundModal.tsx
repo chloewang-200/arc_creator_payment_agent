@@ -35,6 +35,7 @@ export function RefundModal({ intent, onClose, onSuccess }: RefundModalProps) {
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [requiresManualApproval, setRequiresManualApproval] = useState(false);
 
   const handleRefund = async () => {
     if (!address) {
@@ -87,7 +88,9 @@ export function RefundModal({ intent, onClose, onSuccess }: RefundModalProps) {
           setStep('success');
         } else {
           // Manual approval required
-          setError(data.refund.message || 'Refund request submitted for manual approval.');
+          const errorMessage = data.refund.message || 'Refund requires manual approval, please contact the creator for assistance.';
+          setError(errorMessage);
+          setRequiresManualApproval(true);
           setStep('summary');
         }
       } else {
@@ -162,11 +165,15 @@ export function RefundModal({ intent, onClose, onSuccess }: RefundModalProps) {
               )}
 
               <Button
-                onClick={handleRefund}
+                onClick={requiresManualApproval ? handleClose : handleRefund}
                 disabled={isProcessing}
-                className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`w-full ${
+                  requiresManualApproval 
+                    ? 'bg-gray-600 hover:bg-gray-700' 
+                    : 'bg-red-600 hover:bg-red-700'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                {isProcessing ? 'Processing...' : 'Confirm Refund'}
+                {isProcessing ? 'Processing...' : requiresManualApproval ? 'Close' : 'Confirm Refund'}
               </Button>
             </>
           )}

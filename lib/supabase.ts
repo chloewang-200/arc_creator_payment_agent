@@ -63,6 +63,7 @@ export type Post = {
   voice_preview_status?: string;
   voice_preview_text?: string;
   voice_preview_generated_at?: string;
+  listen_audio_url?: string; // Cached URL for "Listen to this post" audio
   created_at: string;
   updated_at: string;
 };

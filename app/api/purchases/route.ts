@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     // Get active subscription
     const { data: subscription, error: subError } = await supabase
       .from('subscriptions')
-      .select('id, creator_id, amount_usd, transaction_hash, active_until, created_at')
+      .select('id, creator_id, transaction_hash, active_until, created_at, chain_id')
       .eq('wallet_address', userWalletAddress.toLowerCase())
       .eq('creator_id', creatorId)
       .gte('active_until', new Date().toISOString())
@@ -61,14 +61,24 @@ export async function GET(request: NextRequest) {
     console.log('[Purchases API] Subscription query:', { subscription, error: subError });
 
     if (!subError && subscription) {
+      // Get subscription amount from creator_pricing table
+      const { data: pricing, error: pricingError } = await supabase
+        .from('creator_pricing')
+        .select('monthly_usd')
+        .eq('creator_id', creatorId)
+        .maybeSingle();
+
+      const amountUSD = pricing?.monthly_usd || 0;
+
       purchases.push({
         type: 'subscription',
         id: subscription.id,
-        amountUSD: subscription.amount_usd,
+        amountUSD: amountUSD,
         transactionId: subscription.id, // Use subscription.id as transactionId
         transactionHash: subscription.transaction_hash,
         activeUntil: subscription.active_until,
         createdAt: subscription.created_at,
+        chainId: subscription.chain_id,
       });
     } else if (subError) {
       console.error('[Purchases API] Error fetching subscription:', subError);

@@ -211,13 +211,36 @@ export function CreatorAgentWithCloudflare({ creatorName, creatorId, autoOpen = 
                     : parseFloat(params.amount);
 
                   if (action === 'unlock' && creator) {
+                    // Try to find post by ID first, then by title (fallback for AI mistakes)
+                    let postId = params.postId;
+                    let post = creatorPosts.find(p => p.id === postId);
+                    
+                    // If not found by ID, try to find by title (AI might have sent title instead of ID)
+                    if (!post) {
+                      post = creatorPosts.find(p => p.title === postId || p.title.toLowerCase() === postId.toLowerCase());
+                      if (post) {
+                        postId = post.id;
+                        console.warn(`[AI Agent] Post ID not found, using title lookup. Found post: ${post.title} (${post.id})`);
+                      }
+                    }
+                    
+                    if (!post) {
+                      console.error(`[AI Agent] Post not found for postId: ${params.postId}`);
+                      setAiMessages((prev) => [...prev, {
+                        role: 'assistant',
+                        content: 'Sorry, I couldn\'t find that post. Please try again or specify which post you\'d like to unlock.',
+                      }]);
+                      setIsLoading(false);
+                      return;
+                    }
+                    
                     paymentIntent = {
                       kind: 'unlock',
-                      postId: params.postId,
+                      postId: postId, // Use the actual UUID
                       creatorId: creator.id,
                       creatorAddress: creator.walletAddress,
                       amountUSD: amount,
-                      title: creatorPosts.find(p => p.id === params.postId)?.title,
+                      title: post.title,
                     };
                   } else if (action === 'subscribe' && creator) {
                     paymentIntent = {

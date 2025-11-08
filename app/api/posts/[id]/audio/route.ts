@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 import { synthesizePreview } from '@/lib/elevenlabs';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+const AUDIO_BUCKET = process.env.SUPABASE_POST_AUDIO_BUCKET || 'post-voice-previews';
 
 // Default voice IDs from ElevenLabs library
 const DEFAULT_VOICES = {
@@ -25,7 +32,7 @@ export async function GET(
       );
     }
 
-    // Get post data
+    // Get post data (including cached audio URL)
     const { data: post, error: postError } = await supabase
       .from('posts')
       .select(`
@@ -35,6 +42,7 @@ export async function GET(
         content,
         price_usd,
         creator_id,
+        listen_audio_url,
         creators (
           id,
           name,
@@ -97,6 +105,30 @@ export async function GET(
 
     console.log(`[audio] Limited text from ${words.length} to ${limitedWords.length} words for 5-second cap`);
 
+    // Check if cached audio exists
+    if (post.listen_audio_url) {
+      console.log(`[audio] Found cached audio for post ${postId}: ${post.listen_audio_url}`);
+      try {
+        // Fetch the cached audio from storage
+        const audioResponse = await fetch(post.listen_audio_url);
+        if (audioResponse.ok) {
+          const audioBuffer = await audioResponse.arrayBuffer();
+          console.log(`[audio] Returning cached audio for post ${postId}`);
+          return new NextResponse(audioBuffer, {
+            headers: {
+              'Content-Type': 'audio/mpeg',
+              'Content-Length': audioBuffer.byteLength.toString(),
+              'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
+            },
+          });
+        } else {
+          console.log(`[audio] Cached audio not found, will regenerate: ${post.listen_audio_url}`);
+        }
+      } catch (error) {
+        console.warn(`[audio] Error fetching cached audio, will regenerate:`, error);
+      }
+    }
+
     // Determine which voice to use
     let voiceId: string;
     const creator = Array.isArray(post.creators) ? post.creators[0] : post.creators;
@@ -119,12 +151,46 @@ export async function GET(
       outputFormat: 'mp3_44100_128',
     });
 
+    // Store audio in Supabase Storage for future use
+    try {
+      const audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' });
+      const filePath = `${post.creator_id}/${postId}/listen-${Date.now()}.mp3`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(AUDIO_BUCKET)
+        .upload(filePath, audioBlob, {
+          cacheControl: '86400',
+          contentType: 'audio/mpeg',
+          upsert: true,
+        });
+
+      if (!uploadError) {
+        const { data: publicUrlData } = supabase.storage
+          .from(AUDIO_BUCKET)
+          .getPublicUrl(filePath);
+        const audioUrl = publicUrlData.publicUrl;
+
+        // Update post with cached audio URL
+        await supabase
+          .from('posts')
+          .update({ listen_audio_url: audioUrl })
+          .eq('id', postId);
+
+        console.log(`[audio] Stored audio in cache: ${audioUrl}`);
+      } else {
+        console.warn(`[audio] Failed to store audio in cache:`, uploadError);
+      }
+    } catch (storageError) {
+      console.warn(`[audio] Error storing audio in cache:`, storageError);
+      // Continue even if storage fails - still return the audio
+    }
+
     // Return audio as response
     return new NextResponse(audioBuffer, {
       headers: {
         'Content-Type': 'audio/mpeg',
         'Content-Length': audioBuffer.byteLength.toString(),
-        'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+        'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
       },
     });
   } catch (error: any) {

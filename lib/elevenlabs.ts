@@ -145,3 +145,22 @@ export async function synthesizePreview(options: {
 
   return await response.arrayBuffer();
 }
+
+/**
+ * Delete a voice from ElevenLabs
+ */
+export async function deleteVoice(voiceId: string): Promise<void> {
+  ensureApiKey();
+
+  const response = await fetch(`https://api.elevenlabs.io/v1/voices/${voiceId}`, {
+    method: 'DELETE',
+    headers: {
+      'xi-api-key': ELEVENLABS_API_KEY!,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to delete voice from ElevenLabs: ${errorText}`);
+  }
+}

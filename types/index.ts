@@ -13,6 +13,7 @@ export type Post = {
   voicePreviewStatus?: 'missing' | 'pending' | 'ready' | 'failed';
   voicePreviewText?: string | null;
   voicePreviewGeneratedAt?: string | null;
+  listenAudioUrl?: string | null; // Cached URL for "Listen to this post" audio
 };
 
 export type SitePricing = {

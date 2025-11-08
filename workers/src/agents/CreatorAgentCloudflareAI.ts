@@ -145,8 +145,12 @@ export class CreatorAgent extends AIChatAgent<Env, CreatorAgentState> {
     if (creator.posts && creator.posts.length > 0) {
       prompt += `Available Content:\n`;
       creator.posts.forEach((post, i) => {
-        prompt += `${i + 1}. "${post.title}" (${post.contentType}) - $${post.priceUSD.toFixed(2)}\n`;
+        prompt += `${i + 1}. "${post.title}" (${post.contentType}) - $${post.priceUSD.toFixed(2)} [ID: ${post.id}]\n`;
       });
+      prompt += `\n`;
+      prompt += `IMPORTANT: When outputting payment actions, use the POST ID (UUID), NOT the title. For example:\n`;
+      prompt += `- Correct: {"action": "unlock", "postId": "${creator.posts[0]?.id || 'POST_UUID_HERE'}", "amount": ${creator.posts[0]?.priceUSD || 0}}\n`;
+      prompt += `- Wrong: {"action": "unlock", "postId": "${creator.posts[0]?.title || 'Post Title'}", "amount": ${creator.posts[0]?.priceUSD || 0}}\n`;
       prompt += `\n`;
     }
 
