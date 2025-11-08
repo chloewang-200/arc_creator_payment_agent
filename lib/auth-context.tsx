@@ -53,10 +53,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     handleOAuthCallback();
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session, error } }) => {
+    supabase.auth.getSession().then(({ data, error }) => {
       if (error) {
         console.error('[Auth] Error getting session:', error);
       }
+      const session = data?.session ?? null;
       console.log('[Auth] Initial session:', session ? 'Found' : 'None', session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
