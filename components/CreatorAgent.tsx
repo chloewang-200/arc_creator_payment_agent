@@ -21,12 +21,13 @@ interface CreatorAgentProps {
   creatorName: string;
   creatorId: string;
   autoOpen?: boolean;
+  onUnlock?: () => void;
 }
 
-export function CreatorAgent({ creatorName, creatorId, autoOpen = false }: CreatorAgentProps) {
+export function CreatorAgent({ creatorName, creatorId, autoOpen = false, onUnlock }: CreatorAgentProps) {
   // Use Cloudflare Agents if enabled, otherwise use mock AI
   if (isAgentEnabled()) {
-    return <CreatorAgentWithCloudflare creatorName={creatorName} creatorId={creatorId} autoOpen={autoOpen} />;
+    return <CreatorAgentWithCloudflare creatorName={creatorName} creatorId={creatorId} autoOpen={autoOpen} onUnlock={onUnlock} />;
   }
 
   // Fallback to mock AI (current implementation)
@@ -490,6 +491,10 @@ export function CreatorAgent({ creatorName, creatorId, autoOpen = false }: Creat
               sender: 'avatar',
             };
             setMessages((prev) => [...prev, successMessage]);
+            // Re-check post access (same as direct unlock button)
+            if (onUnlock) {
+              onUnlock();
+            }
           }}
         />
       )}

@@ -70,3 +70,11 @@ workers/node_modules/
 *.md
 !README.md
 .cursorignore
+cache/
+
+# Circle entity secret backups (SENSITIVE - contains encryption keys)
+# These files should NEVER be committed to git
+circle-entity-secret-backups/
+*.recovery
+*.recovery.dat
+*.recovery.json

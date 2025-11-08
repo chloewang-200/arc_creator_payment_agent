@@ -1,76 +1,228 @@
-## Foundry
+# Bloby
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+**The future of the creator economy.** Bloby is a platform that empowers creators to monetize their content with instant USDC payments, AI-powered assistants, and complete ownership of their audience.
 
-Foundry consists of:
+## 🌟 What is Bloby?
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+Bloby is a creator platform built on Arc Network that enables:
+- **Instant USDC Payments** - Get paid the moment fans consume your content
+- **AI Assistant (Bloby)** - Every creator gets their own 24/7 AI assistant to handle support and payments
+- **Multiple Revenue Streams** - Pay-per-content, subscriptions, tips, and recurring support
+- **Complete Ownership** - Your audience, your data, your business
+- **Global Reach** - Accept payments from anywhere with feeless transactions
 
-## Documentation
+## 🚀 Features
 
-https://book.getfoundry.sh/
+### For Creators
+- 🤖 **Personal AI Assistant** - Bloby handles customer support, payment processing, and content discovery
+- 💰 **Instant Payments** - Get paid immediately in USDC, no waiting periods
+- 📊 **Complete Dashboard** - Track earnings, manage content, and configure AI settings
+- 🎤 **AI Voice Cloning** - Generate voice previews for locked content using ElevenLabs
+- 🛡️ **Smart Refund Management** - Automated refund processing with Circle Programmable Wallets
+- 🌐 **Multi-Chain Support** - Arc Testnet, Ethereum Sepolia, Base Sepolia, Sei Testnet
 
-## Usage
+### For Fans
+- 🔓 **Pay-Per-Content** - Unlock individual pieces of content instantly
+- 💳 **Flexible Payments** - One-time tips, recurring support, or monthly subscriptions
+- 🎧 **Voice Previews** - Hear 10-second AI voice previews before unlocking
+- 💬 **AI Chat** - Chat with creators' AI assistants for support and discovery
 
-### Build
+## 🛠️ Tech Stack
 
-```shell
-$ forge build
+### Frontend
+- **Next.js 16** - React framework with App Router
+- **TypeScript** - Type-safe development
+- **Tailwind CSS** - Utility-first styling
+- **Radix UI** - Accessible component primitives
+- **Wagmi & Viem** - Web3 wallet integration
+
+### Backend
+- **Supabase** - PostgreSQL database, authentication, and storage
+- **Next.js API Routes** - Serverless API endpoints
+- **Cloudflare Workers AI** - AI agent infrastructure with Durable Objects
+
+### Blockchain
+- **Arc Network** - Layer-1 blockchain optimized for stablecoin payments
+- **Circle Technologies**:
+  - Developer Controlled Wallets (automated refunds)
+  - Bridge Kit (cross-chain transfers)
+  - Gateway (instant cross-chain transfers)
+  - Paymaster (gasless transactions)
+- **Account Abstraction** - EIP-7702 with Pimlico Bundler
+
+### Smart Contracts
+- **Foundry** - Smart contract development framework
+- **PayRouter** - Payment routing contract
+- **MockUSDC** - Test USDC token for Arc Testnet
+
+### AI & Voice
+- **Cloudflare Workers AI** - AI agent framework
+- **ElevenLabs** - Voice cloning and synthesis
+
+## 📋 Prerequisites
+
+- Node.js 18+ and npm
+- Supabase account and project
+- Circle account (for automated refunds)
+- ElevenLabs account (for voice previews)
+- Vercel account (for deployment)
+
+## 🚀 Quick Start
+
+### 1. Clone and Install
+
+```bash
+git clone <your-repo-url>
+cd arc
+npm install
 ```
 
-### Test
+### 2. Environment Variables
 
-```shell
-$ forge test
+Copy `.env.local.example` to `.env.local` and fill in your values:
+
+```bash
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+# Arc Network
+NEXT_PUBLIC_ARC_RPC_URL=https://rpc.testnet.arc.network
+
+# Circle (for automated refunds)
+CIRCLE_API_KEY=your_circle_api_key
+CIRCLE_ENTITY_SECRET=your_entity_secret
+
+# ElevenLabs (for voice previews)
+ELEVENLABS_API_KEY=your_elevenlabs_key
+
+# Cloudflare Agents
+NEXT_PUBLIC_CLOUDFLARE_AGENTS_HOST=your_workers_host
 ```
 
-### Format
+See [VERCEL_ENV_VARIABLES.md](./VERCEL_ENV_VARIABLES.md) for a complete list.
 
-```shell
-$ forge fmt
+### 3. Database Setup
+
+Run the Supabase migrations:
+
+1. Go to your Supabase project SQL Editor
+2. Run the migrations in order:
+   - `supabase-schema.sql`
+   - `migrations/add_refund_settings.sql`
+   - `migrations/add_chain_id_to_refunds.sql`
+   - `migrations/add_circle_transaction_id_to_refunds.sql`
+
+See [SUPABASE_QUICK_START.md](./SUPABASE_QUICK_START.md) for detailed instructions.
+
+### 4. Deploy Smart Contracts
+
+```bash
+# Deploy to Arc Testnet
+forge script script/DeployMockUSDC.s.sol:DeployMockUSDC --rpc-url $ARC_TESTNET_RPC_URL --private-key $PRIVATE_KEY --broadcast
+forge script script/DeployPayRouter.s.sol:DeployPayRouter --rpc-url $ARC_TESTNET_RPC_URL --private-key $PRIVATE_KEY --broadcast
 ```
 
-### Gas Snapshots
+Update contract addresses in `.env.local` after deployment.
 
-```shell
-$ forge snapshot
+### 5. Run Development Server
+
+```bash
+npm run dev
 ```
 
-### Anvil
+Visit [http://localhost:3000](http://localhost:3000)
 
-```shell
-$ anvil
+## 📚 Documentation
+
+- **[FEATURES.md](./FEATURES.md)** - Complete feature overview and business value
+- **[SUPABASE_QUICK_START.md](./SUPABASE_QUICK_START.md)** - Database setup guide
+- **[CIRCLE_REFUND_SETUP.md](./CIRCLE_REFUND_SETUP.md)** - Circle wallet setup for automated refunds
+- **[CLOUDFLARE_AGENTS_SETUP.md](./CLOUDFLARE_AGENTS_SETUP.md)** - AI agent setup
+- **[VERCEL_ENV_VARIABLES.md](./VERCEL_ENV_VARIABLES.md)** - Environment variables for Vercel
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Deployment guide
+
+## 🧪 Development
+
+### Scripts
+
+```bash
+# Development
+npm run dev          # Start dev server
+npm run build        # Build for production
+npm run start        # Start production server
+
+# Smart Contracts
+forge build          # Build contracts
+forge test           # Run tests
+forge fmt            # Format Solidity code
+forge script script/DeployPayRouter.s.sol:DeployPayRouter --rpc-url $ARC_TESTNET_RPC_URL --private-key $PRIVATE_KEY --broadcast
 ```
 
-### Deploy
+### Project Structure
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+```
+arc/
+├── app/                 # Next.js app directory
+│   ├── api/            # API routes
+│   ├── creator/        # Creator dashboard pages
+│   └── p/              # Public post pages
+├── components/         # React components
+├── lib/                # Utilities and configurations
+├── contracts/          # Smart contracts
+├── src/                # Additional Solidity contracts
+├── migrations/         # Database migrations
+└── workers/            # Cloudflare Workers AI code
 ```
 
-### Cast
+## 🌐 Deployment
 
-```shell
-$ cast <subcommand>
-```
+### Vercel Deployment
 
-### Help
+1. Push your code to GitHub
+2. Import project in Vercel
+3. Add environment variables (see [VERCEL_ENV_VARIABLES.md](./VERCEL_ENV_VARIABLES.md))
+4. Deploy
 
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+The build will automatically:
+- Install dependencies
+- Run `forge fmt --check` (formatting check)
+- Build Next.js application
+- Deploy to Vercel
 
-## ElevenLabs Voice Previews
+### Environment Variables
 
-Creators can now share a 10-second AI narration for every locked post.
+Make sure to add all required environment variables in Vercel:
+- Production environment
+- Preview environment (optional)
+- Development environment (optional)
 
-1. In Supabase Storage, create two public buckets: `creator-voices` (raw uploads) and `post-voice-previews` (generated clips). If you need different names, override them with `SUPABASE_VOICE_BUCKET` and `SUPABASE_POST_AUDIO_BUCKET`.
-2. Add the following to `.env.local` (and keep the real secrets out of git):
-   - `ELEVENLABS_API_KEY`
-   - `ELEVENLABS_MODEL_ID` (optional, defaults to `eleven_turbo_v2`)
-3. Creators visit `/creator`, record a quick clip in-browser (or upload a short <10 MB sample), enable the toggle, then use "Generate audio" beside each post. We automatically trim text so every clip stays within the free 10-second ElevenLabs tier, and unlocked supporters see an inline audio player above the post body.
+See [VERCEL_ENV_VARIABLES.md](./VERCEL_ENV_VARIABLES.md) for the complete list.
+
+## 🔗 Key Links
+
+- **Arc Network**: [https://www.arc.network/](https://www.arc.network/)
+- **Circle Console**: [https://console.circle.com/](https://console.circle.com/)
+- **Supabase Dashboard**: [https://supabase.com/dashboard](https://supabase.com/dashboard)
+- **Cloudflare Workers**: [https://workers.cloudflare.com/](https://workers.cloudflare.com/)
+
+## 🤝 Contributing
+
+This is a private project. For questions or issues, please contact the maintainers.
+
+## 📝 License
+
+[Add your license here]
+
+## 🙏 Acknowledgments
+
+- **Arc Network** - For the economic infrastructure
+- **Circle** - For payment infrastructure and programmable wallets
+- **Cloudflare** - For AI infrastructure
+- **ElevenLabs** - For voice cloning technology
+- **Supabase** - For the backend infrastructure
+
+---
+
+**Built with ❤️ for creators who want to own their business.**

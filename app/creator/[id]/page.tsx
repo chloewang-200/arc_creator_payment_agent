@@ -605,7 +605,7 @@ function CreatorPageContent() {
         )}
       </div>
 
-      <CreatorAgent creatorName={creator.name} creatorId={creator.id} autoOpen={shouldOpenChat} />
+      <CreatorAgent creatorName={creator.name} creatorId={creator.id} autoOpen={shouldOpenChat} onUnlock={handleUnlock} />
 
       {selectedIntent && (
         <CheckoutModal
@@ -613,8 +613,8 @@ function CreatorPageContent() {
           onClose={() => setSelectedIntent(null)}
           onSuccess={() => {
             setSelectedIntent(null);
-            // Reload access state
-            window.location.reload();
+            // Re-check post access (same as unlock button)
+            handleUnlock();
           }}
         />
       )}

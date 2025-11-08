@@ -11,14 +11,28 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { postId, walletAddress, txHash, type, chainId } = body;
 
+    console.log('[unlocks/record] Received request:', { type, postId, walletAddress, txHash, chainId });
+
     if (!walletAddress) {
       return NextResponse.json({ error: 'Wallet address required' }, { status: 400 });
     }
 
     // Handle different payment types
     if (type === 'unlock' && postId) {
+      if (!txHash) {
+        console.error('[unlocks/record] Missing transaction hash for unlock');
+        return NextResponse.json({ error: 'Transaction hash required' }, { status: 400 });
+      }
+
+      console.log('[unlocks/record] Recording post unlock:', {
+        post_id: postId,
+        wallet_address: walletAddress.toLowerCase(),
+        transaction_hash: txHash,
+        chain_id: chainId,
+      });
+
       // Record post unlock
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('post_unlocks')
         .upsert({
           post_id: postId,
@@ -28,10 +42,11 @@ export async function POST(request: NextRequest) {
           unlocked_at: new Date().toISOString(),
         }, {
           onConflict: 'post_id,wallet_address'
-        });
+        })
+        .select();
 
       if (error) {
-        console.error('Error recording post unlock:', error);
+        console.error('[unlocks/record] Error recording post unlock:', error);
         return NextResponse.json({ 
           error: 'Failed to record unlock',
           details: error.message,
@@ -39,7 +54,8 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
 
-      return NextResponse.json({ success: true });
+      console.log('[unlocks/record] Successfully recorded unlock:', data);
+      return NextResponse.json({ success: true, data });
     } else if (type === 'subscription') {
       const { creatorId, days = 30 } = body;
 

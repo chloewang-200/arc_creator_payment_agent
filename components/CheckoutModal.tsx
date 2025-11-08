@@ -32,6 +32,9 @@ export function CheckoutModal({ intent, onClose, onSuccess }: CheckoutModalProps
   const { switchChain } = useSwitchChain();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
+  
+  // Get the actual wallet address - prefer walletClient.account.address as it's the source of truth
+  const actualWalletAddress = walletClient?.account?.address || address;
   const [step, setStep] = useState<'summary' | 'confirm' | 'processing' | 'success'>('summary');
   const [error, setError] = useState<string | null>(null);
   const [usePaymaster, setUsePaymaster] = useState(false);
@@ -83,46 +86,87 @@ export function CheckoutModal({ intent, onClose, onSuccess }: CheckoutModalProps
   // Handle successful payment - record in database
   useEffect(() => {
     const recordPayment = async () => {
-      if (!isPaySuccess || !address) return;
+      if (!isPaySuccess || !actualWalletAddress) {
+        console.error('Cannot record payment: isPaySuccess=', isPaySuccess, 'actualWalletAddress=', actualWalletAddress);
+        return;
+      }
+
+      const txHash = payHash || payTxHash;
+      if (!txHash) {
+        console.error('No transaction hash available to record unlock');
+        return;
+      }
+
+      // Get the actual sender from the transaction receipt to be 100% sure
+      let senderAddress = actualWalletAddress;
+      try {
+        if (publicClient && txHash) {
+          const receipt = await publicClient.getTransactionReceipt({ hash: txHash as `0x${string}` });
+          if (receipt.from) {
+            senderAddress = receipt.from;
+            console.log('Got sender address from transaction receipt:', senderAddress);
+          }
+        }
+      } catch (error) {
+        console.warn('Could not get sender from receipt, using wallet address:', error);
+      }
 
       try {
+        const recordData = {
+          type: intent.kind,
+          postId: intent.postId,
+          creatorId: intent.creatorId,
+          walletAddress: senderAddress.toLowerCase(),
+          amount: intent.amountUSD,
+          txHash: txHash,
+          chainId: chainId, // Track which chain payment was made on
+          days: 30,
+        };
+
+        console.log('Recording unlock in database:', {
+          ...recordData,
+          walletAddressFromHook: address,
+          walletAddressFromWalletClient: walletClient?.account?.address,
+          walletAddressFromReceipt: senderAddress,
+        });
+
         // Record the unlock/subscription in the database
         const response = await fetch('/api/unlocks/record', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: intent.kind,
-            postId: intent.postId,
-            creatorId: intent.creatorId,
-            walletAddress: address,
-            amount: intent.amountUSD,
-            txHash: payHash || payTxHash,
-            chainId: chainId, // Track which chain payment was made on
-            days: 30,
-          }),
+          body: JSON.stringify(recordData),
         });
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          console.error('Failed to record payment in database:', errorData);
-          // Don't throw - blockchain tx succeeded, so we still show success
+          console.error('Failed to record payment in database:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorData
+          });
+          // Show error to user but don't block - blockchain tx succeeded
+          alert(`Payment succeeded but failed to record unlock. Please contact support with transaction hash: ${txHash}`);
+        } else {
+          const result = await response.json();
+          console.log('Successfully recorded unlock in database:', result);
+          
+          // Also update localStorage for immediate UI feedback
+          if (intent.kind === 'unlock' && intent.postId) {
+            unlockPost(intent.postId);
+          } else if (intent.kind === 'subscription') {
+            activateSubscription(30);
+          } else if (intent.kind === 'recurringTip' && intent.creatorId) {
+            activateRecurringTip(intent.creatorId, intent.amountUSD, 30);
+          }
+          // Tips don't change entitlements
         }
-
-        // Also update localStorage for immediate UI feedback
-        if (intent.kind === 'unlock' && intent.postId) {
-          unlockPost(intent.postId);
-        } else if (intent.kind === 'subscription') {
-          activateSubscription(30);
-        } else if (intent.kind === 'recurringTip' && intent.creatorId) {
-          activateRecurringTip(intent.creatorId, intent.amountUSD, 30);
-        }
-        // Tips don't change entitlements
 
         setStep('success');
+        // Wait a bit longer to ensure database write is complete
         setTimeout(() => {
           onSuccess();
           onClose();
-        }, 2000);
+        }, 3000);
       } catch (error) {
         console.error('Error recording payment:', error);
         // Still show success since blockchain tx succeeded
@@ -137,7 +181,7 @@ export function CheckoutModal({ intent, onClose, onSuccess }: CheckoutModalProps
     if (isPaySuccess) {
       recordPayment();
     }
-  }, [isPaySuccess, address, intent, payHash, payTxHash, onSuccess, onClose]);
+  }, [isPaySuccess, actualWalletAddress, address, walletClient, intent, payHash, payTxHash, chainId, publicClient, onSuccess, onClose]);
 
   useEffect(() => {
     const amount = parseUnits(intent.amountUSD.toFixed(6), USDC_DECIMALS);

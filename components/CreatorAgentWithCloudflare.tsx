@@ -22,9 +22,10 @@ interface CreatorAgentWithCloudflareProps {
   creatorName: string;
   creatorId: string;
   autoOpen?: boolean;
+  onUnlock?: () => void;
 }
 
-export function CreatorAgentWithCloudflare({ creatorName, creatorId, autoOpen = false }: CreatorAgentWithCloudflareProps) {
+export function CreatorAgentWithCloudflare({ creatorName, creatorId, autoOpen = false, onUnlock }: CreatorAgentWithCloudflareProps) {
   const { isConnected, address } = useAccount();
   const chainId = useChainId();
   const [creator, setCreator] = useState<Creator | null>(null);
@@ -533,7 +534,13 @@ export function CreatorAgentWithCloudflare({ creatorName, creatorId, autoOpen = 
         <CheckoutModal
           intent={selectedIntent}
           onClose={() => setSelectedIntent(null)}
-          onSuccess={() => setSelectedIntent(null)}
+          onSuccess={() => {
+            setSelectedIntent(null);
+            // Re-check post access (same as direct unlock button)
+            if (onUnlock) {
+              onUnlock();
+            }
+          }}
         />
       )}
 
@@ -543,8 +550,10 @@ export function CreatorAgentWithCloudflare({ creatorName, creatorId, autoOpen = 
           onClose={() => setSelectedRefundIntent(null)}
           onSuccess={() => {
             setSelectedRefundIntent(null);
-            // Refresh the page to update entitlements
-            window.location.reload();
+            // Re-check post access to lock the post (same as unlock button)
+            if (onUnlock) {
+              onUnlock();
+            }
           }}
         />
       )}
