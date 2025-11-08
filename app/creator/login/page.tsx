@@ -27,11 +27,18 @@ export default function CreatorLogin() {
   const handleGoogleLogin = async () => {
     try {
       setError('');
+      setIsSigningIn(true);
       await signInWithGoogle();
       // Redirect will happen automatically after OAuth flow
-    } catch (error) {
-      console.error('Login failed:', error);
-      setError('Google sign-in is not enabled yet. Please use email/password or wait for setup.');
+    } catch (error: any) {
+      console.error('Google login failed:', error);
+      // Check if it's a provider not enabled error
+      if (error?.message?.includes('not enabled') || error?.message?.includes('Unsupported provider')) {
+        setError('Google sign-in is not enabled in Supabase. Please enable Google OAuth in your Supabase dashboard (Authentication → Providers → Google) or use email/password login.');
+      } else {
+        setError(error.message || 'Google sign-in failed. Please try again or use email/password.');
+      }
+      setIsSigningIn(false);
     }
   };
 
@@ -146,7 +153,7 @@ export default function CreatorLogin() {
           <Button
             onClick={handleGoogleLogin}
             variant="outline"
-            className="w-full gap-2"
+            className="w-full gap-2 bg-white hover:bg-gray-50 border border-gray-300"
             size="lg"
             disabled={isSigningIn}
           >

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/creators/profile?wallet=0x... or ?username=alex-creator or ?email=user@example.com or ?id=uuid
@@ -189,43 +190,62 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Upsert creator
-    const { data: creator, error: creatorError } = await supabase
+    // Prepare insert/update data
+    const insertData = {
+      email,
+      wallet_address: walletAddress,
+      username,
+      name,
+      bio,
+      avatar_url: avatar,
+      cover_image_url: coverImage,
+      ai_tone: aiTone,
+      ai_personality: aiPersonality,
+      ai_background: aiBackground,
+      refund_wallet_address: refundWalletAddress,
+      refund_wallet_chain_id: refundWalletChainId,
+      voice_sample_url: voiceSampleUrl,
+      voice_sample_duration_seconds: voiceSampleDurationSeconds,
+      voice_preview_enabled: voicePreviewEnabled,
+      voice_clone_status: voiceCloneStatus,
+      elevenlabs_voice_id: elevenLabsVoiceId,
+      circle_wallet_set_id: circleWalletSetId,
+      circle_wallet_id: circleWalletId,
+      circle_wallet_address: circleWalletAddress,
+      circle_wallet_chain: circleWalletChain,
+      circle_wallet_status: circleWalletStatus,
+    };
+
+    // Log the INSERT/UPSERT query data
+    console.log('[Profile API] INSERT/UPSERT data:', JSON.stringify(insertData, null, 2));
+    console.log('[Profile API] Email:', email);
+    console.log('[Profile API] Username:', username);
+    console.log('[Profile API] Wallet Address:', walletAddress);
+    console.log('[Profile API] Name:', name);
+
+    // Upsert creator - use admin client to bypass RLS
+    const { data: creator, error: creatorError } = await supabaseAdmin
       .from('creators')
-      .upsert({
-        email,
-        wallet_address: walletAddress,
-        username,
-        name,
-        bio,
-        avatar_url: avatar,
-        cover_image_url: coverImage,
-        ai_tone: aiTone,
-        ai_personality: aiPersonality,
-        ai_background: aiBackground,
-        refund_wallet_address: refundWalletAddress,
-        refund_wallet_chain_id: refundWalletChainId,
-        voice_sample_url: voiceSampleUrl,
-        voice_sample_duration_seconds: voiceSampleDurationSeconds,
-        voice_preview_enabled: voicePreviewEnabled,
-        voice_clone_status: voiceCloneStatus,
-        elevenlabs_voice_id: elevenLabsVoiceId,
-        circle_wallet_set_id: circleWalletSetId,
-        circle_wallet_id: circleWalletId,
-        circle_wallet_address: circleWalletAddress,
-        circle_wallet_chain: circleWalletChain,
-        circle_wallet_status: circleWalletStatus,
-      }, {
+      .upsert(insertData, {
         onConflict: 'email',
       })
       .select()
       .single();
 
-    if (creatorError) throw creatorError;
+    if (creatorError) {
+      console.error('[Profile API] Database error:', creatorError);
+      console.error('[Profile API] Error code:', creatorError.code);
+      console.error('[Profile API] Error message:', creatorError.message);
+      console.error('[Profile API] Error details:', creatorError.details);
+      console.error('[Profile API] Error hint:', creatorError.hint);
+      throw creatorError;
+    }
 
-    // Upsert pricing if provided
+    console.log('[Profile API] Successfully created/updated creator:', creator.id);
+
+    // Upsert pricing if provided - use admin client to bypass RLS
     if (pricing && creator) {
-      const { error: pricingError } = await supabase
+      const { error: pricingError } = await supabaseAdmin
         .from('creator_pricing')
         .upsert({
           creator_id: creator.id,

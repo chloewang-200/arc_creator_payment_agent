@@ -4,7 +4,7 @@ import { useAccount, useChainId, useSwitchChain, useWalletClient, usePublicClien
 import { formatUnits, parseUnits, erc20Abi } from 'viem';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowDownToLine, Loader2, CheckCircle2, XCircle, Zap } from 'lucide-react';
+import { ArrowDownToLine, Loader2, CheckCircle2, XCircle, Zap, Wallet, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -18,9 +18,10 @@ import { getContract } from 'viem';
 import { GATEWAY_MINTER_ADDRESS, GATEWAY_MINTER_ABI, getGatewayDomain } from '@/lib/gateway';
 
 interface ConsolidateBalanceProps {
-  creatorAddress: `0x${string}`;
+  creatorAddress?: `0x${string}`;
   creatorId?: string; // Optional: if provided, show earnings instead of wallet balance
   onConsolidationComplete?: () => void;
+  onNavigateToSettings?: () => void; // Callback to navigate to Settings tab
 }
 
 interface ChainBalance {
@@ -46,7 +47,7 @@ const SUPPORTED_CHAINS = [
   { id: 1328, name: 'Sei Testnet', rpc: 'https://evm-rpc-testnet.sei-apis.com' },
 ];
 
-export function ConsolidateBalance({ creatorAddress, creatorId, onConsolidationComplete }: ConsolidateBalanceProps) {
+export function ConsolidateBalance({ creatorAddress, creatorId, onConsolidationComplete, onNavigateToSettings }: ConsolidateBalanceProps) {
   const { address } = useAccount();
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
@@ -82,7 +83,10 @@ export function ConsolidateBalance({ creatorAddress, creatorId, onConsolidationC
 
   // Fetch earnings from transactions if creatorId is provided, otherwise fetch wallet balances
   const fetchBalances = async () => {
-    if (!creatorAddress) return;
+    if (!creatorAddress) {
+      setIsLoading(false);
+      return;
+    }
 
     setIsLoading(true);
     const balances: ChainBalance[] = [];
@@ -218,6 +222,10 @@ export function ConsolidateBalance({ creatorAddress, creatorId, onConsolidationC
 
   // Fetch actual wallet balances for consolidation (regardless of whether we're showing earnings)
   const fetchActualWalletBalances = async (): Promise<ChainBalance[]> => {
+    if (!creatorAddress) {
+      return [];
+    }
+    
     const balances: ChainBalance[] = [];
     
     await Promise.all(
@@ -262,6 +270,10 @@ export function ConsolidateBalance({ creatorAddress, creatorId, onConsolidationC
   };
 
   const executeConsolidation = async () => {
+    if (!creatorAddress) {
+      throw new Error('Creator wallet address not configured');
+    }
+    
     // For consolidation, the creator must connect their own wallet
     if (!address) {
       throw new Error('Please connect your wallet to consolidate balances');
@@ -425,6 +437,43 @@ export function ConsolidateBalance({ creatorAddress, creatorId, onConsolidationC
       return;
     }
   };
+
+  // Show message if no wallet address - but we need to import useRouter to navigate
+  // Actually, let's just show a message and let the parent handle navigation
+  if (!creatorAddress) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ArrowDownToLine className="w-5 h-5" />
+            Consolidate to Arc Network
+          </CardTitle>
+          <CardDescription>
+            Set your wallet address to consolidate balances from all chains
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-6">
+            <Wallet className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <p className="text-sm text-muted-foreground mb-4">
+              No wallet address configured. Please set your wallet address in Settings to consolidate balances.
+            </p>
+            {onNavigateToSettings && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onNavigateToSettings}
+                className="flex items-center gap-2 mx-auto"
+              >
+                <Settings className="w-4 h-4" />
+                Update in Settings
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (isLoading) {
     return (

@@ -98,11 +98,42 @@ function CreatorDashboardContent() {
     };
   }, [recordedPreviewUrl]);
 
-  // Redirect to login if not authenticated
+  // Handle OAuth callback and clear error parameters
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/creator/login');
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const error = urlParams.get('error');
+      const errorDescription = urlParams.get('error_description');
+      
+      if (error) {
+        console.error('[OAuth Callback] Error from OAuth:', error, errorDescription);
+        // Clear error parameters from URL
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }
     }
+  }, []);
+
+  // Redirect to login if not authenticated (but wait a bit for OAuth session to establish)
+  useEffect(() => {
+    if (authLoading) {
+      console.log('[Creator Dashboard] Auth still loading, waiting...');
+      return; // Still loading, wait
+    }
+    
+    console.log('[Creator Dashboard] Auth loading complete. User:', user ? user.email : 'None');
+    
+    // Give OAuth callback more time to establish session (OAuth can take a few seconds)
+    const timeoutId = setTimeout(() => {
+      if (!user) {
+        console.log('[Creator Dashboard] No user found after timeout, redirecting to login');
+        router.push('/creator/login');
+      } else {
+        console.log('[Creator Dashboard] User found, staying on dashboard:', user.email);
+      }
+    }, 3000); // Wait 3 seconds for OAuth session to establish
+    
+    return () => clearTimeout(timeoutId);
   }, [authLoading, user, router]);
 
   // Load profile and posts from database by email
@@ -115,8 +146,10 @@ function CreatorDashboardContent() {
         // Load profile
         if (!user.email) {
           console.error('User email not available');
+          setIsLoadingProfile(false);
           return;
         }
+        
         const profileResponse = await fetch(`/api/creators/profile?email=${encodeURIComponent(user.email)}`);
 
         if (profileResponse.ok) {
@@ -133,10 +166,20 @@ function CreatorDashboardContent() {
                 refundContactEmail: data.pricing.refundContactEmail ?? null,
               });
             }
+            setIsLoadingProfile(false);
+          } else {
+            // No profile exists - auto-create one for OAuth users
+            await createProfileForUser();
           }
+        } else if (profileResponse.status === 404) {
+          // Profile doesn't exist - auto-create one for OAuth users
+          await createProfileForUser();
+        } else {
+          console.error('Error fetching profile:', profileResponse.status, await profileResponse.text());
+          setIsLoadingProfile(false);
         }
 
-        // Load posts
+        // Load posts (even if profile creation is in progress)
         const postsResponse = await fetch(`/api/posts?creatorEmail=${encodeURIComponent(user.email)}`);
         if (postsResponse.ok) {
           const postsData = await postsResponse.json();
@@ -146,7 +189,90 @@ function CreatorDashboardContent() {
         }
       } catch (error) {
         console.error('Error loading profile:', error);
-      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    const createProfileForUser = async () => {
+      try {
+        if (!user.email) {
+          console.error('[Profile Creation] User email not available');
+          setIsLoadingProfile(false);
+          return;
+        }
+
+        const userName = user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0] || 'Creator';
+        // Generate a unique username from email
+        const baseUsername = user.user_metadata?.preferred_username || user.email.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'creator';
+        const username = baseUsername.length > 0 ? baseUsername : `creator-${Date.now()}`;
+        
+        console.log('[Profile Creation] Creating profile for OAuth user:', { email: user.email, name: userName, username });
+        
+        // Auto-create profile
+        const createResponse = await fetch('/api/creators/profile', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: user.email,
+            name: userName,
+            username: username,
+            walletAddress: '0xB518B94b8496497B33Bf5357844184fCeA8aB926', // Default wallet, user can update
+            bio: '',
+            avatar: user.user_metadata?.avatar_url || user.user_metadata?.picture || '/images/avatars/creator1.jpg',
+            pricing: defaultPricing,
+          }),
+        });
+
+        if (!createResponse.ok) {
+          const errorText = await createResponse.text();
+          console.error('[Profile Creation] Failed to create profile:', createResponse.status, errorText);
+          setIsLoadingProfile(false);
+          return;
+        }
+
+        const createData = await createResponse.json();
+        console.log('[Profile Creation] Profile created successfully:', createData);
+        
+        // Wait a moment for the database to commit
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Reload profile
+        const reloadResponse = await fetch(`/api/creators/profile?email=${encodeURIComponent(user.email)}`);
+        if (reloadResponse.ok) {
+          const reloadData = await reloadResponse.json();
+          if (reloadData.creator) {
+            console.log('[Profile Creation] Reloaded profile:', reloadData.creator);
+            setProfile(reloadData.creator);
+            setTempProfile(reloadData.creator);
+            if (reloadData.pricing) {
+              setPricing({
+                ...defaultPricing,
+                ...reloadData.pricing,
+                refundConversationThreshold: reloadData.pricing.refundConversationThreshold ?? 3,
+                refundAutoThresholdUSD: reloadData.pricing.refundAutoThresholdUSD ?? 1.00,
+                refundContactEmail: reloadData.pricing.refundContactEmail ?? null,
+              });
+            }
+          } else {
+            console.warn('[Profile Creation] Profile created but reload returned no creator data');
+          }
+        } else {
+          const errorText = await reloadResponse.text();
+          console.error('[Profile Creation] Failed to reload profile after creation:', reloadResponse.status, errorText);
+          // Try one more time after a longer delay
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const retryResponse = await fetch(`/api/creators/profile?email=${encodeURIComponent(user.email)}`);
+          if (retryResponse.ok) {
+            const retryData = await retryResponse.json();
+            if (retryData.creator) {
+              setProfile(retryData.creator);
+              setTempProfile(retryData.creator);
+            }
+          }
+        }
+        setIsLoadingProfile(false);
+      } catch (error) {
+        console.error('[Profile Creation] Error creating profile:', error);
         setIsLoadingProfile(false);
       }
     };
@@ -700,43 +826,84 @@ function CreatorDashboardContent() {
         </div>
 
         {/* Wallet Connection for Consolidation */}
-        {profile.walletAddress && (
-          <Card className="mb-6 bg-white border-slate-200 shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-slate-900">
-                <Wallet className="w-5 h-5 text-blue-600" />
-                Connect Wallet for Consolidation
-              </CardTitle>
-              <CardDescription className="text-slate-600">
-                Connect your creator wallet ({profile.walletAddress.slice(0, 6)}...{profile.walletAddress.slice(-4)}) to consolidate balances from all chains to Arc Network.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  {isConnected ? (
-                    <div className="space-y-1">
-                      <div className="text-sm font-medium">Wallet Connected</div>
-                      <div className="text-xs text-muted-foreground font-mono">
-                        {connectedAddress?.slice(0, 6)}...{connectedAddress?.slice(-4)}
-                      </div>
-                      {connectedAddress?.toLowerCase() !== profile.walletAddress.toLowerCase() && (
-                        <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">
-                          ⚠️ Connected wallet doesn't match creator address. Please connect the correct wallet.
+        <Card className="mb-6 bg-white border-slate-200 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-slate-900">
+              <Wallet className="w-5 h-5 text-blue-600" />
+              Connect Wallet for Consolidation
+            </CardTitle>
+            <CardDescription className="text-slate-600">
+              {profile.walletAddress ? (
+                <>Connect your creator wallet ({profile.walletAddress.slice(0, 6)}...{profile.walletAddress.slice(-4)}) to consolidate balances from all chains to Arc Network.</>
+              ) : (
+                <>Set your wallet address in Settings, then connect it here to consolidate balances from all chains to Arc Network.</>
+              )}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                {profile.walletAddress ? (
+                  <>
+                    {isConnected ? (
+                      <div className="space-y-1">
+                        <div className="text-sm font-medium">Wallet Connected</div>
+                        <div className="text-xs text-muted-foreground font-mono">
+                          {connectedAddress?.slice(0, 6)}...{connectedAddress?.slice(-4)}
                         </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">
-                      Connect your wallet to consolidate balances
-                    </div>
-                  )}
-                </div>
+                        {connectedAddress?.toLowerCase() !== profile.walletAddress.toLowerCase() && (
+                          <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                            ⚠️ Connected wallet doesn't match creator address ({profile.walletAddress.slice(0, 6)}...{profile.walletAddress.slice(-4)}). Please connect the correct wallet.
+                          </div>
+                        )}
+                        {connectedAddress?.toLowerCase() === profile.walletAddress.toLowerCase() && (
+                          <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                            ✓ Connected wallet matches creator address
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground">
+                        Connect your wallet ({profile.walletAddress.slice(0, 6)}...{profile.walletAddress.slice(-4)}) to consolidate balances
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    Set your wallet address in Settings first, then connect it here
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                {(!profile.walletAddress || (isConnected && connectedAddress?.toLowerCase() !== profile.walletAddress.toLowerCase())) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setActiveTab('settings');
+                      // Scroll to wallet address field after tab switch
+                      setTimeout(() => {
+                        const walletInput = document.getElementById('wallet');
+                        if (walletInput) {
+                          walletInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          // Focus the input after scrolling
+                          setTimeout(() => {
+                            walletInput.focus();
+                          }, 500);
+                        }
+                      }, 100);
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <Settings className="w-4 h-4" />
+                    Update in Settings
+                  </Button>
+                )}
                 <WalletConnectButton />
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Balance Cards */}
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -747,18 +914,30 @@ function CreatorDashboardContent() {
               <UniversalBalance creatorAddress={profile.walletAddress} />
             )}
           </ErrorBoundary>
-          {profile.walletAddress && (
-            <ErrorBoundary>
-              <ConsolidateBalance
-                creatorAddress={profile.walletAddress}
-                creatorId={profile.id}
-                onConsolidationComplete={() => {
-                  // Refresh the page or trigger a balance refresh
-                  window.location.reload();
-                }}
-              />
-            </ErrorBoundary>
-          )}
+           <ErrorBoundary>
+             <ConsolidateBalance
+               creatorAddress={profile.walletAddress}
+               creatorId={profile.id}
+               onConsolidationComplete={() => {
+                 // Refresh the page or trigger a balance refresh
+                 window.location.reload();
+               }}
+               onNavigateToSettings={() => {
+                 setActiveTab('settings');
+                 // Scroll to wallet address field after tab switch
+                 setTimeout(() => {
+                   const walletInput = document.getElementById('wallet');
+                   if (walletInput) {
+                     walletInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                     // Focus the input after scrolling
+                     setTimeout(() => {
+                       walletInput.focus();
+                     }, 500);
+                   }
+                 }, 100);
+               }}
+             />
+           </ErrorBoundary>
         </div>
 
         {/* Tabs */}

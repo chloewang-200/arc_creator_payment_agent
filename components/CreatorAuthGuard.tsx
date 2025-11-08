@@ -3,27 +3,29 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
 
 export function CreatorAuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { user, loading } = useAuth();
+  const [hasChecked, setHasChecked] = useState(false);
 
   useEffect(() => {
-    const checkAuth = () => {
-      const loggedIn = localStorage.getItem('creator_logged_in');
-      if (loggedIn === 'true') {
-        setIsAuthenticated(true);
+    // Wait a bit for OAuth callback to process
+    const timeoutId = setTimeout(() => {
+      if (!loading && !user) {
+        console.log('[AuthGuard] No user after timeout, redirecting to login');
+        router.push('/creator/login');
       }
-      setIsLoading(false);
-    };
+      setHasChecked(true);
+    }, 2000); // Wait 2 seconds for OAuth session
 
-    checkAuth();
-  }, []);
+    return () => clearTimeout(timeoutId);
+  }, [loading, user, router]);
 
-  if (isLoading) {
+  // Show loading while checking auth or waiting for OAuth
+  if (loading || !hasChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="w-64">
@@ -36,9 +38,8 @@ export function CreatorAuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isAuthenticated) {
-    router.push('/creator/login');
-    return null;
+  if (!user) {
+    return null; // Will redirect via useEffect
   }
 
   return <>{children}</>;
