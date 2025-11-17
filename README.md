@@ -1,5 +1,7 @@
 # Bloby
 
+https://arc-creator-payment-agent.vercel.app/
+
 **The future of the creator economy.** Bloby is a platform that empowers creators to monetize their content with instant USDC payments, AI-powered assistants, and complete ownership of their audience.
 
 ## 🌟 What is Bloby?
